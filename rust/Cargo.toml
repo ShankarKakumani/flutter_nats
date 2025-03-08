@@ -1,0 +1,18 @@
+[package]
+name = "rust_lib_flutter_nats"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "staticlib"]
+
+[dependencies]
+flutter_rust_bridge = "=2.8.0"
+async-nats = "0.39.0"         # This version is an example; verify the latest version.
+tokio = "1.43.0"
+rand = "0.9.0"
+futures-util = "0.3"   # For StreamExt
+once_cell = "1.17.1"   # Or a similar version
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(frb_expand)'] }
