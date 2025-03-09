@@ -9,10 +9,18 @@ use tokio::sync::RwLock;
 use std::collections::HashMap;
 use tokio_stream::StreamExt;
 
+
+
 // A thread-safe wrapper around the NATS client
 static NATS_CLIENT: Lazy<Arc<Mutex<Option<Client>>>> = Lazy::new(|| {
     Arc::new(Mutex::new(None))
 });
+
+// Store JetStream Key-Value contexts
+static KV_STORES: Lazy<Arc<RwLock<HashMap<String, async_nats::jetstream::kv::Store>>>> = Lazy::new(|| {
+    Arc::new(RwLock::new(HashMap::new()))
+});
+
 
 // Store active subscription information
 type SubscriptionId = String;
@@ -588,7 +596,7 @@ async fn process_requests(
 }
 
 
-/// Puts a value in the key-value store.
+/// Puts a value in the key-value store using JetStream.
 #[flutter_rust_bridge::frb]
 pub async fn kv_put(
     bucket_name: String,
@@ -609,11 +617,22 @@ pub async fn kv_put(
     };
     drop(client_guard);
 
-    // Use simple publish rather than JetStream
-    let subject = format!("kv.{}.{}", bucket_name, key);
+    // Get or create the JetStream context
+    let jetstream = async_nats::jetstream::new(client);
 
-    // Publish the value
-    match client.publish(subject, value.into_bytes().into()).await {
+    // Get or create the KV store
+    let store = match get_or_create_kv_store(&jetstream, &bucket_name).await {
+        Ok(store) => store,
+        Err(e) => {
+            on_failure(format!("Failed to access KV bucket: {}", e)).await;
+            return;
+        }
+    };
+
+    // Put the value - convert Vec<u8> to Bytes
+    // Use bytes::Bytes directly
+    let bytes_value = bytes::Bytes::from(value.into_bytes());
+    match store.put(&key, bytes_value).await {
         Ok(_) => {
             on_success(true).await;
         },
@@ -623,7 +642,7 @@ pub async fn kv_put(
     }
 }
 
-/// Gets a value from the key-value store.
+/// Gets a value from the key-value store using JetStream.
 #[flutter_rust_bridge::frb]
 pub async fn kv_get(
     bucket_name: String,
@@ -643,34 +662,137 @@ pub async fn kv_get(
     };
     drop(client_guard);
 
-    // Construct request subject
-    let subject = format!("kv.{}.{}", bucket_name, key);
+    // Get the JetStream context
+    let jetstream = async_nats::jetstream::new(client);
 
-    // Send request with timeout
-    let timeout = std::time::Duration::from_millis(2000);
+    // Get the KV store
+    let store = match get_or_create_kv_store(&jetstream, &bucket_name).await {
+        Ok(store) => store,
+        Err(e) => {
+            on_failure(format!("Failed to access KV bucket: {}", e)).await;
+            return;
+        }
+    };
 
-    match tokio::time::timeout(
-        timeout,
-        client.request(subject, vec![].into()),
-    ).await {
-        Ok(result) => match result {
-            Ok(response) => {
-                // Convert response to string
-                match String::from_utf8(response.payload.to_vec()) {
-                    Ok(value) => {
-                        on_success(value).await;
-                    },
-                    Err(e) => {
-                        on_failure(format!("Invalid UTF-8 in response: {}", e)).await;
-                    }
+    // Get the value
+    match store.get(&key).await {
+        Ok(Some(entry)) => {
+            // Convert entry to string - entry is directly a Bytes type
+            match String::from_utf8(entry.to_vec()) {
+                Ok(value) => {
+                    on_success(value).await;
+                },
+                Err(e) => {
+                    on_failure(format!("Invalid UTF-8 in value: {}", e)).await;
                 }
-            },
-            Err(e) => {
-                on_failure(format!("Failed to get value: {}", e)).await;
             }
         },
-        Err(_) => {
-            on_failure("Request timed out".to_string()).await;
+        Ok(None) => {
+            on_failure(format!("Key '{}' not found", key)).await;
+        },
+        Err(e) => {
+            on_failure(format!("Failed to get value: {}", e)).await;
+        }
+    }
+}
+
+/// Deletes a key from the key-value store using JetStream.
+#[flutter_rust_bridge::frb]
+pub async fn kv_delete(
+    bucket_name: String,
+    key: String,
+    on_success: impl Fn(bool) -> DartFnFuture<()>,
+    on_failure: impl Fn(String) -> DartFnFuture<()>,
+) {
+    // Get the client
+    let client_guard = NATS_CLIENT.lock().await;
+    let client = match &*client_guard {
+        Some(client) => client.clone(),
+        None => {
+            drop(client_guard);
+            on_failure("Not connected to NATS server".to_string()).await;
+            return;
+        }
+    };
+    drop(client_guard);
+
+    // Get the JetStream context
+    let jetstream = async_nats::jetstream::new(client);
+
+    // Get the KV store
+    let store = match get_or_create_kv_store(&jetstream, &bucket_name).await {
+        Ok(store) => store,
+        Err(e) => {
+            on_failure(format!("Failed to access KV bucket: {}", e)).await;
+            return;
+        }
+    };
+
+    // Delete the key
+    match store.delete(&key).await {
+        Ok(_) => {
+            on_success(true).await;
+        },
+        Err(e) => {
+            on_failure(format!("Failed to delete key: {}", e)).await;
+        }
+    }
+}
+
+/// Helper function to get or create a KV store.
+async fn get_or_create_kv_store(
+    jetstream: &async_nats::jetstream::Context,
+    bucket_name: &str,
+) -> Result<async_nats::jetstream::kv::Store, String> {
+    // Check if we have this store cached
+    {
+        let stores = KV_STORES.read().await;
+        if let Some(store) = stores.get(bucket_name) {
+            return Ok(store.clone());
+        }
+    }
+
+    // Not cached, try to get from server
+    match jetstream.get_key_value(bucket_name).await {
+        Ok(store) => {
+            // Cache the store
+            {
+                let mut stores = KV_STORES.write().await;
+                stores.insert(bucket_name.to_string(), store.clone());
+            }
+            Ok(store)
+        },
+        Err(e) => {
+            // If error is "stream not found", try to create it
+            if e.to_string().contains("stream not found") {
+                // Create KV bucket configuration
+                let config = async_nats::jetstream::kv::Config {
+                    bucket: bucket_name.to_string(),
+                    description: format!("KV Store for {}", bucket_name), // String, not Option<String>
+                    max_value_size: 1024 * 1024, // 1MB max value size
+                    history: 5,                  // Keep 5 revisions
+                    // ttl is not available in this version
+                    // storage type is different in this version
+                    ..Default::default()
+                };
+
+                // Create the bucket
+                match jetstream.create_key_value(config).await {
+                    Ok(store) => {
+                        // Cache the store
+                        {
+                            let mut stores = KV_STORES.write().await;
+                            stores.insert(bucket_name.to_string(), store.clone());
+                        }
+                        Ok(store)
+                    },
+                    Err(create_err) => {
+                        Err(format!("Failed to create KV bucket: {}", create_err))
+                    }
+                }
+            } else {
+                Err(format!("Failed to access KV bucket: {}", e))
+            }
         }
     }
 }

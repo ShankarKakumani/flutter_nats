@@ -50,7 +50,6 @@ class MyAppState extends State<MyApp> {
   String _subscriberStatus = "Responder not active";
   bool _isSubscriberActive = false;
 
-  // Add these variables to your MyAppState class
   // Key-Value Section
   final TextEditingController _kvBucketController = TextEditingController(text: "my-bucket");
   final TextEditingController _kvKeyController = TextEditingController(text: "my-key");
@@ -73,91 +72,190 @@ class MyAppState extends State<MyApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: "NATS Playground",
+      theme: ThemeData(
+        useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+      ),
       home: Scaffold(
-        appBar: AppBar(title: const Text("NATS Playground")),
+        appBar: AppBar(
+          title: const Text(
+            "NATS Playground",
+            style: TextStyle(
+              color: Colors.white,
+            ),
+          ),
+          backgroundColor: Theme.of(context).colorScheme.onPrimaryContainer,
+        ),
         body: SingleChildScrollView(
           padding: const EdgeInsets.all(16.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Connection Section
-              const Text("Connection", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _endpointController,
-                decoration: const InputDecoration(labelText: "Endpoint"),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  ElevatedButton(
-                    onPressed: !_isConnected ? _connect : null,
-                    child: const Text("Connect"),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton(
-                    onPressed: _isConnected ? _disconnect : null,
-                    child: const Text("Disconnect"),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Text("Status: $_connectionStatus"),
+              _buildConnectionSection(),
               const SizedBox(height: 32),
+              _buildRequestSection(),
+              const SizedBox(height: 32),
+              _buildResponderSection(),
+              const SizedBox(height: 32),
+              _buildPublishSection(),
+              const SizedBox(height: 32),
+              _buildSubscribeSection(),
+              const SizedBox(height: 32),
+              _buildKeyValueSection(),
+              const SizedBox(height: 32),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
-              // Request Section
-              const Text("Request", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _requestSubjectController,
-                decoration: const InputDecoration(labelText: "Subject"),
+  // UI SECTIONS
+
+  Widget _buildConnectionSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text("Connection", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _endpointController,
+          decoration: const InputDecoration(
+            labelText: "Endpoint",
+            border: OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            ElevatedButton(
+              onPressed: !_isConnected ? _connect : null,
+              child: const Text("Connect"),
+            ),
+            const SizedBox(width: 8),
+            ElevatedButton(
+              onPressed: _isConnected ? _disconnect : null,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+                foregroundColor: Colors.white,
               ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _requestMessageController,
-                decoration: const InputDecoration(labelText: "Message"),
-              ),
-              const SizedBox(height: 12),
-              ElevatedButton(
-                onPressed: _isConnected ? _sendRequest : null,
-                child: const Text("Send Request"),
-              ),
-              const SizedBox(height: 12),
+              child: const Text("Disconnect"),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: _isConnected ? Colors.green.shade100 : Colors.red.shade100,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text("Status: $_connectionStatus"),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRequestSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text("Request", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _requestSubjectController,
+          decoration: const InputDecoration(
+            labelText: "Subject",
+            border: OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _requestMessageController,
+          decoration: const InputDecoration(
+            labelText: "Message",
+            border: OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 12),
+        ElevatedButton(
+          onPressed: _isConnected ? _sendRequest : null,
+          child: const Text("Send Request"),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.blue.shade50,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               Text("Response: $_requestResponse"),
               if (_requestResponseTime.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 4.0),
                   child: Text("Time: $_requestResponseTime", style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic)),
                 ),
-              const SizedBox(height: 32),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
 
-              // Responder Section
-              const Text("Responder", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _responderSubjectController,
-                decoration: const InputDecoration(labelText: "Subject"),
+  Widget _buildResponderSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text("Responder", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _responderSubjectController,
+          decoration: const InputDecoration(
+            labelText: "Subject",
+            border: OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _responderReplyController,
+          decoration: const InputDecoration(
+            labelText: "Reply Message",
+            border: OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            ElevatedButton(
+              onPressed: _isConnected && !_isResponderActive ? _startResponder : null,
+              child: const Text("Start Responder"),
+            ),
+            const SizedBox(width: 8),
+            ElevatedButton(
+              onPressed: _isResponderActive ? _stopResponder : null,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+                foregroundColor: Colors.white,
               ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _responderReplyController,
-                decoration: const InputDecoration(labelText: "Reply Message"),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  ElevatedButton(
-                    onPressed: _isConnected && !_isResponderActive ? _startResponder : null,
-                    child: const Text("Start Responder"),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton(
-                    onPressed: _isResponderActive ? _stopResponder : null,
-                    child: const Text("Stop Responder"),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
+              child: const Text("Stop Responder"),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: _isResponderActive ? Colors.green.shade50 : Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               Text("Responder Status: $_responderStatus"),
               if (_lastRequestReceived != "No requests yet")
                 Padding(
@@ -170,53 +268,97 @@ class MyAppState extends State<MyApp> {
                     ],
                   ),
                 ),
-              const SizedBox(height: 40),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
 
-              // Publish Section
-              const Text("Publish", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _publishSubjectController,
-                decoration: const InputDecoration(labelText: "Subject"),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _publishMessageController,
-                decoration: const InputDecoration(labelText: "Message"),
-              ),
-              const SizedBox(height: 12),
-              ElevatedButton(
-                onPressed: _isConnected ? _publish : null,
-                child: const Text("Publish Message"),
-              ),
-              const SizedBox(height: 12),
-              Text("Status: $_publishStatus"),
-              const SizedBox(height: 32),
+  Widget _buildPublishSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text("Publish", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _publishSubjectController,
+          decoration: const InputDecoration(
+            labelText: "Subject",
+            border: OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _publishMessageController,
+          decoration: const InputDecoration(
+            labelText: "Message",
+            border: OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 12),
+        ElevatedButton(
+          onPressed: _isConnected ? _publish : null,
+          child: const Text("Publish Message"),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(8),
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: Colors.blue.shade50,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text("Status: $_publishStatus"),
+        ),
+      ],
+    );
+  }
 
-              // Subscribe Section
-              const Text("Subscribe", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _subscribeSubjectController,
-                decoration: const InputDecoration(labelText: "Subject"),
+  Widget _buildSubscribeSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text("Subscribe", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _subscribeSubjectController,
+          decoration: const InputDecoration(
+            labelText: "Subject",
+            border: OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            ElevatedButton(
+              onPressed: _isConnected && !_isSubscriberActive ? _startSubscriber : null,
+              child: const Text("Start Subscribing"),
+            ),
+            const SizedBox(width: 8),
+            ElevatedButton(
+              onPressed: _isSubscriberActive ? _stopSubscriber : null,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+                foregroundColor: Colors.white,
               ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  ElevatedButton(
-                    onPressed: _isConnected && !_isSubscriberActive ? _startSubscriber : null,
-                    child: const Text("Start Subscribing"),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton(
-                    onPressed: _isSubscriberActive ? _stopSubscriber : null,
-                    child: const Text("Stop Subscribing"),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
+              child: const Text("Stop Subscribing"),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: _isSubscriberActive ? Colors.green.shade50 : Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               Text("Subscriber Status: $_subscriberStatus"),
-              if (_lastPublishMsgReceived != "No publish messages yet")
+              if (_lastPublishMsgReceived != "No publish messages yet" && _lastPublishMsgReceived != "No requests yet")
                 Padding(
                   padding: const EdgeInsets.only(top: 8.0),
                   child: Column(
@@ -227,38 +369,41 @@ class MyAppState extends State<MyApp> {
                     ],
                   ),
                 ),
-              const SizedBox(height: 40),
-
-              //KeyValue
-              keyValueSection(),
             ],
           ),
         ),
-      ),
+      ],
     );
   }
 
-
-  Widget keyValueSection() {
+  Widget _buildKeyValueSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Key-Value Section
         const Text("Key-Value Store", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 12),
         TextField(
           controller: _kvBucketController,
-          decoration: const InputDecoration(labelText: "Bucket"),
+          decoration: const InputDecoration(
+            labelText: "Bucket",
+            border: OutlineInputBorder(),
+          ),
         ),
         const SizedBox(height: 12),
         TextField(
           controller: _kvKeyController,
-          decoration: const InputDecoration(labelText: "Key"),
+          decoration: const InputDecoration(
+            labelText: "Key",
+            border: OutlineInputBorder(),
+          ),
         ),
         const SizedBox(height: 12),
         TextField(
           controller: _kvValueController,
-          decoration: const InputDecoration(labelText: "Value"),
+          decoration: const InputDecoration(
+            labelText: "Value",
+            border: OutlineInputBorder(),
+          ),
         ),
         const SizedBox(height: 12),
         Row(
@@ -272,21 +417,43 @@ class MyAppState extends State<MyApp> {
               onPressed: _isConnected ? _getValue : null,
               child: const Text("Get Value"),
             ),
+            const SizedBox(width: 8),
+            ElevatedButton(
+              onPressed: _isConnected ? _deleteValue : null,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text("Delete Key"),
+            ),
           ],
         ),
         const SizedBox(height: 12),
-        Text("Status: $_kvStatus"),
-        if (_kvLastOperationTime.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(top: 4.0),
-            child: Text("Time: $_kvLastOperationTime",
-                style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic)),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.blue.shade50,
+            borderRadius: BorderRadius.circular(4),
           ),
-        const SizedBox(height: 40),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text("Status: $_kvStatus"),
+              if (_kvLastOperationTime.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4.0),
+                  child: Text("Time: $_kvLastOperationTime", style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic)),
+                ),
+            ],
+          ),
+        ),
       ],
     );
   }
-  // Connect to NATS.
+
+  // CONNECTION FUNCTIONS
+
   void _connect() async {
     nats_manager.connectToNats(
       endPoint: _endpointController.text,
@@ -305,7 +472,6 @@ class MyAppState extends State<MyApp> {
     );
   }
 
-  // Disconnect from NATS.
   void _disconnect() {
     nats_manager.disconnectFromNats(
       onSuccess: (isSuccess) {
@@ -313,7 +479,9 @@ class MyAppState extends State<MyApp> {
           _connectionStatus = "Disconnected";
           _isConnected = false;
           _isResponderActive = false;
+          _isSubscriberActive = false;
           _responderStatus = "Responder not active";
+          _subscriberStatus = "Subscriber not active";
         });
       },
       onFailure: (errorMessage) {
@@ -324,7 +492,8 @@ class MyAppState extends State<MyApp> {
     );
   }
 
-  // Publish a message
+  // PUBLISH FUNCTIONS
+
   void _publish() {
     nats_manager.publish(
       subject: _publishSubjectController.text,
@@ -342,7 +511,8 @@ class MyAppState extends State<MyApp> {
     );
   }
 
-  // Send a request.
+  // REQUEST FUNCTIONS
+
   void _sendRequest() {
     nats_manager.sendRequestWithCallbacks(
       subject: _requestSubjectController.text,
@@ -363,7 +533,8 @@ class MyAppState extends State<MyApp> {
     );
   }
 
-  // Start the responder.
+  // RESPONDER FUNCTIONS
+
   void _startResponder() {
     nats_manager.setupResponder(
       subject: _responderSubjectController.text,
@@ -389,7 +560,6 @@ class MyAppState extends State<MyApp> {
     );
   }
 
-  // Stop the responder.
   void _stopResponder() {
     nats_manager.unsubscribe(
       subscriptionId: "12345678",
@@ -406,6 +576,8 @@ class MyAppState extends State<MyApp> {
       },
     );
   }
+
+  // SUBSCRIBER FUNCTIONS
 
   void _startSubscriber() {
     nats_manager.subscribe(
@@ -441,7 +613,6 @@ class MyAppState extends State<MyApp> {
     );
   }
 
-  // Stop the subscriber.
   void _stopSubscriber() {
     nats_manager.unsubscribe(
       subscriptionId: "sub123",
@@ -459,7 +630,8 @@ class MyAppState extends State<MyApp> {
     );
   }
 
-  // Put a value in the key-value store
+  // KEY-VALUE FUNCTIONS
+
   void _putValue() {
     nats_manager.kvPut(
       bucketName: _kvBucketController.text,
@@ -480,7 +652,6 @@ class MyAppState extends State<MyApp> {
     );
   }
 
-// Get a value from the key-value store
   void _getValue() {
     nats_manager.kvGet(
       bucketName: _kvBucketController.text,
@@ -495,6 +666,25 @@ class MyAppState extends State<MyApp> {
       onFailure: (errorMessage) {
         setState(() {
           _kvStatus = "Get error: $errorMessage";
+          _kvLastOperationTime = _formatTimestamp();
+        });
+      },
+    );
+  }
+
+  void _deleteValue() {
+    nats_manager.kvDelete(
+      bucketName: _kvBucketController.text,
+      key: _kvKeyController.text,
+      onSuccess: (isSuccess) {
+        setState(() {
+          _kvStatus = "Key deleted successfully";
+          _kvLastOperationTime = _formatTimestamp();
+        });
+      },
+      onFailure: (errorMessage) {
+        setState(() {
+          _kvStatus = "Delete error: $errorMessage";
           _kvLastOperationTime = _formatTimestamp();
         });
       },
@@ -517,4 +707,3 @@ class MyAppState extends State<MyApp> {
     super.dispose();
   }
 }
-

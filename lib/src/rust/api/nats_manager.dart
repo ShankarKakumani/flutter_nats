@@ -6,7 +6,7 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `poll_subscription`, `process_requests`
+// These functions are ignored because they are not marked as `pub`: `get_or_create_kv_store`, `poll_subscription`, `process_requests`
 
 /// Connects to a NATS server and calls appropriate callback based on result.
 Future<void> connectToNats(
@@ -164,7 +164,7 @@ Future<void> setupResponder(
         onSuccess: onSuccess,
         onError: onError);
 
-/// Puts a value in the key-value store.
+/// Puts a value in the key-value store using JetStream.
 Future<void> kvPut(
         {required String bucketName,
         required String key,
@@ -178,13 +178,25 @@ Future<void> kvPut(
         onSuccess: onSuccess,
         onFailure: onFailure);
 
-/// Gets a value from the key-value store.
+/// Gets a value from the key-value store using JetStream.
 Future<void> kvGet(
         {required String bucketName,
         required String key,
         required FutureOr<void> Function(String) onSuccess,
         required FutureOr<void> Function(String) onFailure}) =>
     RustLib.instance.api.crateApiNatsManagerKvGet(
+        bucketName: bucketName,
+        key: key,
+        onSuccess: onSuccess,
+        onFailure: onFailure);
+
+/// Deletes a key from the key-value store using JetStream.
+Future<void> kvDelete(
+        {required String bucketName,
+        required String key,
+        required FutureOr<void> Function(bool) onSuccess,
+        required FutureOr<void> Function(String) onFailure}) =>
+    RustLib.instance.api.crateApiNatsManagerKvDelete(
         bucketName: bucketName,
         key: key,
         onSuccess: onSuccess,
