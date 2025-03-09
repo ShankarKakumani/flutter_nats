@@ -6,8 +6,8 @@
 // Static analysis wrongly picks the IO variant, thus ignore this
 // ignore_for_file: argument_type_not_assignable
 
+import 'api/nats_manager.dart';
 import 'api/rust.dart';
-import 'api/rust_manager.dart';
 import 'api/simple.dart';
 import 'dart:async';
 import 'dart:convert';

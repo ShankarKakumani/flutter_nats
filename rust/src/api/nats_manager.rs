@@ -586,3 +586,91 @@ async fn process_requests(
         active_map.remove(&responder_id);
     }
 }
+
+
+/// Puts a value in the key-value store.
+#[flutter_rust_bridge::frb]
+pub async fn kv_put(
+    bucket_name: String,
+    key: String,
+    value: String,
+    on_success: impl Fn(bool) -> DartFnFuture<()>,
+    on_failure: impl Fn(String) -> DartFnFuture<()>,
+) {
+    // Get the client
+    let client_guard = NATS_CLIENT.lock().await;
+    let client = match &*client_guard {
+        Some(client) => client.clone(),
+        None => {
+            drop(client_guard);
+            on_failure("Not connected to NATS server".to_string()).await;
+            return;
+        }
+    };
+    drop(client_guard);
+
+    // Use simple publish rather than JetStream
+    let subject = format!("kv.{}.{}", bucket_name, key);
+
+    // Publish the value
+    match client.publish(subject, value.into_bytes().into()).await {
+        Ok(_) => {
+            on_success(true).await;
+        },
+        Err(e) => {
+            on_failure(format!("Failed to store value: {}", e)).await;
+        }
+    }
+}
+
+/// Gets a value from the key-value store.
+#[flutter_rust_bridge::frb]
+pub async fn kv_get(
+    bucket_name: String,
+    key: String,
+    on_success: impl Fn(String) -> DartFnFuture<()>,
+    on_failure: impl Fn(String) -> DartFnFuture<()>,
+) {
+    // Get the client
+    let client_guard = NATS_CLIENT.lock().await;
+    let client = match &*client_guard {
+        Some(client) => client.clone(),
+        None => {
+            drop(client_guard);
+            on_failure("Not connected to NATS server".to_string()).await;
+            return;
+        }
+    };
+    drop(client_guard);
+
+    // Construct request subject
+    let subject = format!("kv.{}.{}", bucket_name, key);
+
+    // Send request with timeout
+    let timeout = std::time::Duration::from_millis(2000);
+
+    match tokio::time::timeout(
+        timeout,
+        client.request(subject, vec![].into()),
+    ).await {
+        Ok(result) => match result {
+            Ok(response) => {
+                // Convert response to string
+                match String::from_utf8(response.payload.to_vec()) {
+                    Ok(value) => {
+                        on_success(value).await;
+                    },
+                    Err(e) => {
+                        on_failure(format!("Invalid UTF-8 in response: {}", e)).await;
+                    }
+                }
+            },
+            Err(e) => {
+                on_failure(format!("Failed to get value: {}", e)).await;
+            }
+        },
+        Err(_) => {
+            on_failure("Request timed out".to_string()).await;
+        }
+    }
+}

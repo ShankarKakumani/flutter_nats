@@ -13,7 +13,7 @@ Future<void> connectToNats(
         {required String endPoint,
         required FutureOr<void> Function(bool) onSuccess,
         required FutureOr<void> Function(String) onFailure}) =>
-    RustLib.instance.api.crateApiRustManagerConnectToNats(
+    RustLib.instance.api.crateApiNatsManagerConnectToNats(
         endPoint: endPoint, onSuccess: onSuccess, onFailure: onFailure);
 
 /// Disconnects from the NATS server if currently connected.
@@ -25,7 +25,7 @@ Future<void> connectToNats(
 Future<void> disconnectFromNats(
         {required FutureOr<void> Function(bool) onSuccess,
         required FutureOr<void> Function(String) onFailure}) =>
-    RustLib.instance.api.crateApiRustManagerDisconnectFromNats(
+    RustLib.instance.api.crateApiNatsManagerDisconnectFromNats(
         onSuccess: onSuccess, onFailure: onFailure);
 
 /// Sends a request to NATS server and returns the response.
@@ -43,7 +43,7 @@ Future<String> sendRequest(
         {required String subject,
         required String payload,
         required BigInt timeoutMs}) =>
-    RustLib.instance.api.crateApiRustManagerSendRequest(
+    RustLib.instance.api.crateApiNatsManagerSendRequest(
         subject: subject, payload: payload, timeoutMs: timeoutMs);
 
 /// Sends a request to NATS server and handles response via callbacks.
@@ -61,7 +61,7 @@ Future<void> sendRequestWithCallbacks(
         required BigInt timeoutMs,
         required FutureOr<void> Function(String) onSuccess,
         required FutureOr<void> Function(String) onFailure}) =>
-    RustLib.instance.api.crateApiRustManagerSendRequestWithCallbacks(
+    RustLib.instance.api.crateApiNatsManagerSendRequestWithCallbacks(
         subject: subject,
         payload: payload,
         timeoutMs: timeoutMs,
@@ -81,7 +81,7 @@ Future<void> publish(
         required String payload,
         required FutureOr<void> Function(bool) onSuccess,
         required FutureOr<void> Function(String) onFailure}) =>
-    RustLib.instance.api.crateApiRustManagerPublish(
+    RustLib.instance.api.crateApiNatsManagerPublish(
         subject: subject,
         payload: payload,
         onSuccess: onSuccess,
@@ -109,7 +109,7 @@ Future<void> subscribe(
         required FutureOr<void> Function(bool) onSuccess,
         required FutureOr<void> Function(String) onError,
         required FutureOr<void> Function() onDone}) =>
-    RustLib.instance.api.crateApiRustManagerSubscribe(
+    RustLib.instance.api.crateApiNatsManagerSubscribe(
         subject: subject,
         subscriptionId: subscriptionId,
         maxMessages: maxMessages,
@@ -129,7 +129,7 @@ Future<void> unsubscribe(
         {required String subscriptionId,
         required FutureOr<void> Function(bool) onSuccess,
         required FutureOr<void> Function(String) onFailure}) =>
-    RustLib.instance.api.crateApiRustManagerUnsubscribe(
+    RustLib.instance.api.crateApiNatsManagerUnsubscribe(
         subscriptionId: subscriptionId,
         onSuccess: onSuccess,
         onFailure: onFailure);
@@ -140,7 +140,7 @@ Future<void> unsubscribe(
 ///
 /// * `Vec<String>` - List of active subscription IDs
 Future<List<String>> listSubscriptions() =>
-    RustLib.instance.api.crateApiRustManagerListSubscriptions();
+    RustLib.instance.api.crateApiNatsManagerListSubscriptions();
 
 /// Sets up a responder to handle requests on a specified subject.
 ///
@@ -157,9 +157,35 @@ Future<void> setupResponder(
         required FutureOr<String> Function(String) processRequest,
         required FutureOr<void> Function(bool) onSuccess,
         required FutureOr<void> Function(String) onError}) =>
-    RustLib.instance.api.crateApiRustManagerSetupResponder(
+    RustLib.instance.api.crateApiNatsManagerSetupResponder(
         subject: subject,
         responderId: responderId,
         processRequest: processRequest,
         onSuccess: onSuccess,
         onError: onError);
+
+/// Puts a value in the key-value store.
+Future<void> kvPut(
+        {required String bucketName,
+        required String key,
+        required String value,
+        required FutureOr<void> Function(bool) onSuccess,
+        required FutureOr<void> Function(String) onFailure}) =>
+    RustLib.instance.api.crateApiNatsManagerKvPut(
+        bucketName: bucketName,
+        key: key,
+        value: value,
+        onSuccess: onSuccess,
+        onFailure: onFailure);
+
+/// Gets a value from the key-value store.
+Future<void> kvGet(
+        {required String bucketName,
+        required String key,
+        required FutureOr<void> Function(String) onSuccess,
+        required FutureOr<void> Function(String) onFailure}) =>
+    RustLib.instance.api.crateApiNatsManagerKvGet(
+        bucketName: bucketName,
+        key: key,
+        onSuccess: onSuccess,
+        onFailure: onFailure);
