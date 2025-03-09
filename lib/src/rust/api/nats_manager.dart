@@ -6,7 +6,7 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `get_or_create_kv_store`, `poll_subscription`, `process_requests`
+// These functions are ignored because they are not marked as `pub`: `get_or_create_kv_store`, `process_responder_requests`, `process_subscription_messages`
 
 /// Connects to a NATS server and calls appropriate callback based on result.
 Future<void> connectToNats(
@@ -89,7 +89,7 @@ Future<void> publish(
 
 /// Subscribes to a subject and receives messages via a callback.
 ///
-/// This function will continuously poll for messages on the given subject
+/// This function will set up a subscription to the given subject
 /// and call the provided callbacks when messages are received.
 ///
 /// # Arguments

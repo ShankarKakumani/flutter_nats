@@ -9,8 +9,6 @@ use tokio::sync::RwLock;
 use std::collections::HashMap;
 use tokio_stream::StreamExt;
 
-
-
 // A thread-safe wrapper around the NATS client
 static NATS_CLIENT: Lazy<Arc<Mutex<Option<Client>>>> = Lazy::new(|| {
     Arc::new(Mutex::new(None))
@@ -21,14 +19,8 @@ static KV_STORES: Lazy<Arc<RwLock<HashMap<String, async_nats::jetstream::kv::Sto
     Arc::new(RwLock::new(HashMap::new()))
 });
 
-
 // Store active subscription information
 type SubscriptionId = String;
-
-// Use a single Mutex to guard all subscription processes
-static SUBSCRIPTION_CONTROL: Lazy<Arc<Mutex<()>>> = Lazy::new(|| {
-    Arc::new(Mutex::new(()))
-});
 
 // Store active subscriptions
 static SUBSCRIPTIONS: Lazy<Arc<RwLock<HashMap<SubscriptionId, async_nats::Subscriber>>>> = Lazy::new(|| {
@@ -88,8 +80,8 @@ pub async fn disconnect_from_nats(
         }
     }
 
-    // Wait for subscription processing to complete
-    let _lock = SUBSCRIPTION_CONTROL.lock().await;
+    // Wait a bit to allow subscription tasks to clean up
+    tokio::time::sleep(Duration::from_millis(200)).await;
 
     // Clear all subscriptions
     {
@@ -239,7 +231,7 @@ pub async fn publish(
 
 /// Subscribes to a subject and receives messages via a callback.
 ///
-/// This function will continuously poll for messages on the given subject
+/// This function will set up a subscription to the given subject
 /// and call the provided callbacks when messages are received.
 ///
 /// # Arguments
@@ -256,10 +248,10 @@ pub async fn subscribe(
     subject: String,
     subscription_id: String,
     max_messages: u32,
-    on_message: impl Fn(String, String) -> DartFnFuture<()>,
+    on_message: impl Fn(String, String) -> DartFnFuture<()> + Send + 'static,
     on_success: impl Fn(bool) -> DartFnFuture<()>,
-    on_error: impl Fn(String) -> DartFnFuture<()>,
-    on_done: impl Fn() -> DartFnFuture<()>,
+    on_error: impl Fn(String) -> DartFnFuture<()> + Send + 'static,
+    on_done: impl Fn() -> DartFnFuture<()> + Send + 'static,
 ) {
     // Get the client
     let client_guard = NATS_CLIENT.lock().await;
@@ -299,16 +291,20 @@ pub async fn subscribe(
             // Notify successful subscription
             on_success(true).await;
 
-            // Start processing in the current task (no tokio::spawn)
-            // This avoids thread safety issues with the callbacks
-            poll_subscription(
-                subject,
-                subscription_id,
-                max_messages,
-                on_message,
-                on_error,
-                on_done,
-            ).await;
+            // Spawn a task to handle this subscription
+            let subject_clone = subject.clone();
+            let subscription_id_clone = subscription_id.clone();
+
+            tokio::spawn(async move {
+                process_subscription_messages(
+                    subject_clone,
+                    subscription_id_clone,
+                    max_messages,
+                    on_message,
+                    on_error,
+                    on_done,
+                ).await;
+            });
         },
         Err(e) => {
             on_error(format!("Failed to subscribe: {}", e)).await;
@@ -316,8 +312,8 @@ pub async fn subscribe(
     }
 }
 
-/// Internal function to poll a subscription for messages
-async fn poll_subscription(
+/// Internal function to process subscription messages
+async fn process_subscription_messages(
     subject: String,
     subscription_id: String,
     max_messages: u32,
@@ -325,9 +321,6 @@ async fn poll_subscription(
     on_error: impl Fn(String) -> DartFnFuture<()>,
     on_done: impl Fn() -> DartFnFuture<()>,
 ) {
-    // Acquire lock for this subscription's processing
-    let _control_lock = SUBSCRIPTION_CONTROL.lock().await;
-
     let mut message_count = 0;
     let unlimited = max_messages == 0;
 
@@ -451,7 +444,6 @@ pub async fn list_subscriptions() -> Vec<String> {
         .collect()
 }
 
-
 /// Sets up a responder to handle requests on a specified subject.
 ///
 /// # Arguments
@@ -465,9 +457,9 @@ pub async fn list_subscriptions() -> Vec<String> {
 pub async fn setup_responder(
     subject: String,
     responder_id: String,
-    process_request: impl Fn(String) -> DartFnFuture<String>,
+    process_request: impl Fn(String) -> DartFnFuture<String> + Send + 'static,
     on_success: impl Fn(bool) -> DartFnFuture<()>,
-    on_error: impl Fn(String) -> DartFnFuture<()>,
+    on_error: impl Fn(String) -> DartFnFuture<()> + Send + 'static,
 ) {
     // Get the client
     let client_guard = NATS_CLIENT.lock().await;
@@ -497,13 +489,16 @@ pub async fn setup_responder(
             // Notify successful setup
             on_success(true).await;
 
-            // Start processing in the current task
-            process_requests(
-                client,
-                responder_id,
-                process_request,
-                on_error,
-            ).await;
+            // Spawn a task to handle this responder
+            let responder_id_clone = responder_id.clone();
+            tokio::spawn(async move {
+                process_responder_requests(
+                    client,
+                    responder_id_clone,
+                    process_request,
+                    on_error,
+                ).await;
+            });
         },
         Err(e) => {
             on_error(format!("Failed to subscribe: {}", e)).await;
@@ -511,16 +506,13 @@ pub async fn setup_responder(
     }
 }
 
-/// Internal function to process requests
-async fn process_requests(
+/// Internal function to process responder requests
+async fn process_responder_requests(
     client: Client,
     responder_id: String,
     process_request: impl Fn(String) -> DartFnFuture<String>,
     on_error: impl Fn(String) -> DartFnFuture<()>,
 ) {
-    // Acquire lock for processing
-    let _control_lock = SUBSCRIPTION_CONTROL.lock().await;
-
     loop {
         // Check if still active
         let is_active = {
@@ -594,7 +586,6 @@ async fn process_requests(
         active_map.remove(&responder_id);
     }
 }
-
 
 /// Puts a value in the key-value store using JetStream.
 #[flutter_rust_bridge::frb]
