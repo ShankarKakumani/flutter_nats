@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_nats/src/rust/api/rust.dart';
+import 'package:flutter_nats/src/rust/api/rust_manager.dart' as rustManager;
 import 'package:flutter_nats/src/rust/frb_generated.dart';
 
 Future<void> main() async {
@@ -31,6 +32,11 @@ class _MyAppState extends State<MyApp> {
   final TextEditingController _responderReplyController = TextEditingController(text: "Hello from Flutter!");
   String _responderStatus = "Responder not active";
   bool _isResponderActive = false;
+
+  @override
+  void initState() {
+    super.initState();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -127,17 +133,21 @@ class _MyAppState extends State<MyApp> {
 
   // Connect to NATS.
   void _connect() {
-    try {
-      final result = connectSync(natsUrl: _endpointController.text);
-      setState(() {
-        _connectionStatus = result;
-        _isConnected = true;
-      });
-    } catch (e) {
-      setState(() {
-        _connectionStatus = "Connection error: $e";
-      });
-    }
+    rustManager.connectToNats(
+      endPoint: _endpointController.text,
+      onSuccess: (isConnected) {
+        setState(() {
+          _connectionStatus = "Connected";
+          _isConnected = true;
+        });
+      },
+      onFailure: (errorString) {
+        setState(() {
+          _connectionStatus = "Not Connected - $errorString";
+          _isConnected = false;
+        });
+      },
+    );
   }
 
   // Disconnect from NATS.
