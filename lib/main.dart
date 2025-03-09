@@ -241,6 +241,7 @@ class MyAppState extends State<MyApp> {
 
   Widget keyValueSection() {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Key-Value Section
         const Text("Key-Value Store", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
