@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_nats/src/rust/api/rust.dart';
-import 'package:flutter_nats/src/rust/api/rust_manager.dart' as rustManager;
+import 'package:flutter_nats/src/rust/api/rust_manager.dart' as nats_manager;
 import 'package:flutter_nats/src/rust/frb_generated.dart';
 
 Future<void> main() async {
@@ -133,7 +133,7 @@ class _MyAppState extends State<MyApp> {
 
   // Connect to NATS.
   void _connect() async {
-    rustManager.connectToNats(
+    nats_manager.connectToNats(
       endPoint: _endpointController.text,
       onSuccess: (isConnected) {
         setState(() {
@@ -152,69 +152,76 @@ class _MyAppState extends State<MyApp> {
 
   // Disconnect from NATS.
   void _disconnect() {
-    try {
-      final result = disconnectSync();
-      setState(() {
-        _connectionStatus = result;
-        _isConnected = false;
-      });
-    } catch (e) {
-      setState(() {
-        _connectionStatus = "Disconnect error: $e";
-      });
-    }
+    nats_manager.disconnectFromNats(
+      onSuccess: (isSuccess) {
+        setState(() {
+          _connectionStatus = "Disconnected";
+          _isConnected = false;
+        });
+      },
+      onFailure: (errorMessage) {
+        setState(() {
+          _connectionStatus = "Disconnect error: $errorMessage";
+        });
+      },
+    );
   }
 
   // Send a request.
   void _sendRequest() {
-    try {
-      final result = sendRequestSync(
-        natsUrl: _endpointController.text,
-        subject: _requestSubjectController.text,
-        message: _requestMessageController.text,
-      );
-      setState(() {
-        _requestResponse = result;
-      });
-    } catch (e) {
-      setState(() {
-        _requestResponse = "Request error: $e";
-      });
-    }
+    nats_manager.sendRequestWithCallbacks(
+      subject: _requestSubjectController.text,
+      payload: _requestMessageController.text,
+      timeoutMs: BigInt.from(5000),
+      onFailure: (errorMessage) {
+        setState(() {
+          _requestResponse = "Request error: $errorMessage";
+        });
+      },
+      onSuccess: (successMessage) {
+        setState(() {
+          _requestResponse = successMessage;
+        });
+      },
+    );
   }
 
   // Start the responder.
   void _startResponder() {
-    try {
-      final result = startResponderSync(
-        natsUrl: _endpointController.text,
-        subject: _responderSubjectController.text,
-        replyMessage: _responderReplyController.text,
-      );
-      setState(() {
-        _responderStatus = result;
-        _isResponderActive = true;
-      });
-    } catch (e) {
-      setState(() {
-        _responderStatus = "Responder error: $e";
-      });
-    }
+    nats_manager.setupResponder(
+      subject: _responderSubjectController.text,
+      responderId: "12345678",
+      processRequest: (requestMessage) {
+        return _responderReplyController.text;
+      },
+      onSuccess: (isSuccess) {
+        setState(() {
+          _responderStatus = "Responder started";
+          _isResponderActive = true;
+        });
+      },
+      onError: (errorMessage) {
+        setState(() {
+          _responderStatus = "Responder error: $errorMessage";
+        });
+      },
+    );
   }
 
   // Stop the responder.
   void _stopResponder() {
-    try {
-      final result = stopResponderSync();
-      setState(() {
-        _responderStatus = result;
-        _isResponderActive = false;
-      });
-    } catch (e) {
-      setState(() {
-        _responderStatus = "Stop responder error: $e";
-      });
-    }
+    nats_manager.unsubscribe(
+      subscriptionId: "12345678",
+      onSuccess: (isSuccess) {
+        setState(() {
+          _responderStatus = "Responder is not Running";
+          _isResponderActive = false;
+        });
+      },
+      onFailure: (errorMessage) {
+        _responderStatus = "Stop responder error: $errorMessage";
+      },
+    );
   }
 
   @override

@@ -6,6 +6,9 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
+// These functions are ignored because they are not marked as `pub`: `poll_subscription`, `process_requests`
+
+/// Connects to a NATS server and calls appropriate callback based on result.
 Future<void> connectToNats(
         {required String endPoint,
         required FutureOr<void> Function(bool) onSuccess,
@@ -13,5 +16,150 @@ Future<void> connectToNats(
     RustLib.instance.api.crateApiRustManagerConnectToNats(
         endPoint: endPoint, onSuccess: onSuccess, onFailure: onFailure);
 
-Future<void> sendRequest() =>
-    RustLib.instance.api.crateApiRustManagerSendRequest();
+/// Disconnects from the NATS server if currently connected.
+///
+/// # Arguments
+///
+/// * `on_success` - Callback function called when disconnect is successful
+/// * `on_failure` - Callback function called with error message if disconnect fails
+Future<void> disconnectFromNats(
+        {required FutureOr<void> Function(bool) onSuccess,
+        required FutureOr<void> Function(String) onFailure}) =>
+    RustLib.instance.api.crateApiRustManagerDisconnectFromNats(
+        onSuccess: onSuccess, onFailure: onFailure);
+
+/// Sends a request to NATS server and returns the response.
+///
+/// # Arguments
+///
+/// * `subject` - The subject to publish the request to
+/// * `payload` - The message payload as a string
+/// * `timeout_ms` - Request timeout in milliseconds
+///
+/// # Returns
+///
+/// * `Result<String, String>` - The response payload or an error message
+Future<String> sendRequest(
+        {required String subject,
+        required String payload,
+        required BigInt timeoutMs}) =>
+    RustLib.instance.api.crateApiRustManagerSendRequest(
+        subject: subject, payload: payload, timeoutMs: timeoutMs);
+
+/// Sends a request to NATS server and handles response via callbacks.
+///
+/// # Arguments
+///
+/// * `subject` - The subject to publish the request to
+/// * `payload` - The message payload as a string
+/// * `timeout_ms` - Request timeout in milliseconds
+/// * `on_success` - Callback function called with response on success
+/// * `on_failure` - Callback function called with error message on failure
+Future<void> sendRequestWithCallbacks(
+        {required String subject,
+        required String payload,
+        required BigInt timeoutMs,
+        required FutureOr<void> Function(String) onSuccess,
+        required FutureOr<void> Function(String) onFailure}) =>
+    RustLib.instance.api.crateApiRustManagerSendRequestWithCallbacks(
+        subject: subject,
+        payload: payload,
+        timeoutMs: timeoutMs,
+        onSuccess: onSuccess,
+        onFailure: onFailure);
+
+/// Publishes a message to the specified subject.
+///
+/// # Arguments
+///
+/// * `subject` - The subject to publish the message to
+/// * `payload` - The message payload as a string
+/// * `on_success` - Callback function called when publish is successful
+/// * `on_failure` - Callback function called with error message if publish fails
+Future<void> publish(
+        {required String subject,
+        required String payload,
+        required FutureOr<void> Function(bool) onSuccess,
+        required FutureOr<void> Function(String) onFailure}) =>
+    RustLib.instance.api.crateApiRustManagerPublish(
+        subject: subject,
+        payload: payload,
+        onSuccess: onSuccess,
+        onFailure: onFailure);
+
+/// Subscribes to a subject and receives messages via a callback.
+///
+/// This function will continuously poll for messages on the given subject
+/// and call the provided callbacks when messages are received.
+///
+/// # Arguments
+///
+/// * `subject` - The subject to subscribe to (can include wildcards)
+/// * `subscription_id` - A unique identifier for this subscription
+/// * `max_messages` - Maximum number of messages to process (0 for unlimited)
+/// * `on_message` - Callback function called when a message is received
+/// * `on_success` - Callback function called when subscription is successful
+/// * `on_error` - Callback function called if subscription fails
+/// * `on_done` - Callback function called when subscription ends
+Future<void> subscribe(
+        {required String subject,
+        required String subscriptionId,
+        required int maxMessages,
+        required FutureOr<void> Function(String, String) onMessage,
+        required FutureOr<void> Function(bool) onSuccess,
+        required FutureOr<void> Function(String) onError,
+        required FutureOr<void> Function() onDone}) =>
+    RustLib.instance.api.crateApiRustManagerSubscribe(
+        subject: subject,
+        subscriptionId: subscriptionId,
+        maxMessages: maxMessages,
+        onMessage: onMessage,
+        onSuccess: onSuccess,
+        onError: onError,
+        onDone: onDone);
+
+/// Unsubscribes from a subject.
+///
+/// # Arguments
+///
+/// * `subscription_id` - The unique identifier of the subscription to cancel
+/// * `on_success` - Callback function called when unsubscribe is successful
+/// * `on_failure` - Callback function called with error message if unsubscribe fails
+Future<void> unsubscribe(
+        {required String subscriptionId,
+        required FutureOr<void> Function(bool) onSuccess,
+        required FutureOr<void> Function(String) onFailure}) =>
+    RustLib.instance.api.crateApiRustManagerUnsubscribe(
+        subscriptionId: subscriptionId,
+        onSuccess: onSuccess,
+        onFailure: onFailure);
+
+/// Returns a list of active subscription IDs.
+///
+/// # Returns
+///
+/// * `Vec<String>` - List of active subscription IDs
+Future<List<String>> listSubscriptions() =>
+    RustLib.instance.api.crateApiRustManagerListSubscriptions();
+
+/// Sets up a responder to handle requests on a specified subject.
+///
+/// # Arguments
+///
+/// * `subject` - The subject to listen for requests on
+/// * `responder_id` - A unique identifier for this responder
+/// * `handler` - Function that processes requests and returns responses
+/// * `on_success` - Callback function called when responder is set up successfully
+/// * `on_error` - Callback function called if responder setup fails
+Future<void> setupResponder(
+        {required String subject,
+        required String responderId,
+        required FutureOr<String> Function(String) processRequest,
+        required FutureOr<void> Function(bool) onSuccess,
+        required FutureOr<void> Function(String) onError}) =>
+    RustLib.instance.api.crateApiRustManagerSetupResponder(
+        subject: subject,
+        responderId: responderId,
+        processRequest: processRequest,
+        onSuccess: onSuccess,
+        onError: onError);
