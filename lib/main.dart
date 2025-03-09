@@ -132,7 +132,7 @@ class _MyAppState extends State<MyApp> {
   }
 
   // Connect to NATS.
-  void _connect() {
+  void _connect() async {
     rustManager.connectToNats(
       endPoint: _endpointController.text,
       onSuccess: (isConnected) {

@@ -12,3 +12,13 @@ String greet({required String name}) =>
 Future<void> rustFunction(
         {required FutureOr<String> Function(String) dartCallback}) =>
     RustLib.instance.api.crateApiSimpleRustFunction(dartCallback: dartCallback);
+
+Future<void> funWithReturnCallback(
+        {required FutureOr<String> Function(String) dartCallback}) =>
+    RustLib.instance.api
+        .crateApiSimpleFunWithReturnCallback(dartCallback: dartCallback);
+
+Future<void> funWithOnlyCallback(
+        {required FutureOr<bool> Function(String) dartCallback}) =>
+    RustLib.instance.api
+        .crateApiSimpleFunWithOnlyCallback(dartCallback: dartCallback);

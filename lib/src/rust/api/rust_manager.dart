@@ -6,16 +6,6 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-Future<void> funWithReturnCallback(
-        {required FutureOr<String> Function(String) dartCallback}) =>
-    RustLib.instance.api
-        .crateApiRustManagerFunWithReturnCallback(dartCallback: dartCallback);
-
-Future<void> funWithOnlyCallback(
-        {required FutureOr<bool> Function(String) dartCallback}) =>
-    RustLib.instance.api
-        .crateApiRustManagerFunWithOnlyCallback(dartCallback: dartCallback);
-
 Future<void> connectToNats(
         {required String endPoint,
         required FutureOr<void> Function(bool) onSuccess,
@@ -23,10 +13,5 @@ Future<void> connectToNats(
     RustLib.instance.api.crateApiRustManagerConnectToNats(
         endPoint: endPoint, onSuccess: onSuccess, onFailure: onFailure);
 
-abstract class ConnectionCallback {
-  Future<int> f({required String a});
-
-  Future<void> onFailure({required String error});
-
-  Future<void> onSuccess();
-}
+Future<void> sendRequest() =>
+    RustLib.instance.api.crateApiRustManagerSendRequest();

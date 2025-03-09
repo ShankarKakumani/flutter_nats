@@ -1,28 +1,16 @@
+use async_nats;
 use flutter_rust_bridge::DartFnFuture;
-use std::time::Duration;
-use tokio::time::sleep;
+use once_cell::sync::Lazy;
+use std::sync::Mutex;
+use tokio::runtime::Runtime;
 
-pub trait ConnectionCallback {
-    fn on_success(&self);
-    fn on_failure(&self, error: String);
-    fn f(&self, a: String) -> i32;
-}
+static GLOBAL_RT: Lazy<Mutex<Option<Runtime>>> = Lazy::new(|| Mutex::new(None));
+static GLOBAL_CLIENT: Lazy<Mutex<Option<async_nats::Client>>> = Lazy::new(|| Mutex::new(None));
 
 /// Initializes flutter_rust_bridge's default utilities.
 #[flutter_rust_bridge::frb(init)]
 pub fn init_app() {
     flutter_rust_bridge::setup_default_user_utils();
-}
-
-pub async fn fun_with_return_callback(dart_callback: impl Fn(String) -> DartFnFuture<String>) {
-    sleep(Duration::from_secs(10)).await;
-    let result = dart_callback("Tom".to_owned()).await;
-    println!("Received from dart_callback: {}", result);
-}
-
-pub async fn fun_with_only_callback(dart_callback: impl Fn(String) -> DartFnFuture<bool>) {
-    sleep(Duration::from_secs(10)).await;
-    dart_callback("Tom".to_owned()).await; // Will get `Hello, Tom!`
 }
 
 pub async fn connect_to_nats(
@@ -32,14 +20,14 @@ pub async fn connect_to_nats(
 ) {
     // Attempt to connect to NATS.
     let result = async_nats::connect(end_point).await;
-
-    // Check if the connection resulted in an error.
-    if let Err(e) = result {
-        on_failure(e.to_string()).await;
-        return;
+    match result {
+        Err(e) => {
+            on_failure(e.to_string()).await;
+        }
+        Ok(_) => {
+            on_success(true).await;
+        }
     }
-
-    // If the connection was successful, unwrap safely and call on_success.
-    let _client = result.unwrap();
-    on_success(true).await;
 }
+
+pub fn send_request() {}
