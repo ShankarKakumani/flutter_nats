@@ -229,6 +229,150 @@ pub async fn publish(
     }
 }
 
+/// Sets up a responder to handle requests on a specified subject.
+///
+/// # Arguments
+///
+/// * `subject` - The subject to listen for requests on
+/// * `responder_id` - A unique identifier for this responder
+/// * `handler` - Function that processes requests and returns responses
+/// * `on_success` - Callback function called when responder is set up successfully
+/// * `on_error` - Callback function called if responder setup fails
+#[flutter_rust_bridge::frb]
+pub async fn setup_responder(
+    subject: String,
+    responder_id: String,
+    process_request: impl Fn(String) -> DartFnFuture<String> + Send + 'static,
+    on_success: impl Fn(bool) -> DartFnFuture<()>,
+    on_error: impl Fn(String) -> DartFnFuture<()> + Send + 'static,
+) {
+    // Get the client
+    let client_guard = NATS_CLIENT.lock().await;
+    let client = match &*client_guard {
+        Some(client) => client.clone(),
+        None => {
+            drop(client_guard);
+            on_error("Not connected to NATS server".to_string()).await;
+            return;
+        }
+    };
+    drop(client_guard);
+
+    // Subscribe to the subject to receive requests
+    match client.subscribe(subject.clone()).await {
+        Ok(subscriber) => {
+            // Store the subscription
+            {
+                let mut subs = SUBSCRIPTIONS.write().await;
+                subs.insert(responder_id.clone(), subscriber);
+            }
+            {
+                let mut active_map = SUBSCRIPTION_ACTIVE.write().await;
+                active_map.insert(responder_id.clone(), true);
+            }
+
+            // Notify successful setup
+            on_success(true).await;
+
+            // Spawn a task to handle this responder
+            let responder_id_clone = responder_id.clone();
+            tokio::spawn(async move {
+                process_responder_requests(
+                    client,
+                    responder_id_clone,
+                    process_request,
+                    on_error,
+                ).await;
+            });
+        },
+        Err(e) => {
+            on_error(format!("Failed to subscribe: {}", e)).await;
+        }
+    }
+}
+
+/// Internal function to process responder requests
+async fn process_responder_requests(
+    client: Client,
+    responder_id: String,
+    process_request: impl Fn(String) -> DartFnFuture<String>,
+    on_error: impl Fn(String) -> DartFnFuture<()>,
+) {
+    loop {
+        // Check if still active
+        let is_active = {
+            let active_map = SUBSCRIPTION_ACTIVE.read().await;
+            active_map.get(&responder_id).copied().unwrap_or(false)
+        };
+
+        if !is_active {
+            break;
+        }
+
+        // Try to get the next message
+        let maybe_msg = {
+            let mut subs = SUBSCRIPTIONS.write().await;
+            if let Some(sub) = subs.get_mut(&responder_id) {
+                // Try to get the next message with a small timeout
+                tokio::time::timeout(
+                    Duration::from_millis(100),
+                    sub.next()
+                ).await.unwrap_or_else(|_| None)
+            } else {
+                None // Subscription doesn't exist anymore
+            }
+        };
+
+        // Process the message if we got one
+        if let Some(msg) = maybe_msg {
+            if let Some(reply_to) = msg.reply {
+                // Convert request payload to string
+                match String::from_utf8(msg.payload.to_vec()) {
+                    Ok(request_payload) => {
+                        // Call handler to get response
+                        let response = process_request(request_payload).await;
+
+                        // Send response back
+                        match client.publish(reply_to, response.into_bytes().into()).await {
+                            Ok(_) => {}, // Response sent successfully
+                            Err(e) => {
+                                on_error(format!("Failed to send response: {}", e)).await;
+                            }
+                        }
+                    },
+                    Err(e) => {
+                        on_error(format!("Invalid UTF-8 in request: {}", e)).await;
+                    }
+                }
+            }
+        } else {
+            // No message, check if subscription still exists
+            let sub_exists = {
+                let subs = SUBSCRIPTIONS.read().await;
+                subs.contains_key(&responder_id)
+            };
+
+            if !sub_exists {
+                break;
+            }
+
+            // Small delay to avoid busy-waiting
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+    }
+
+    // Clean up
+    {
+        let mut subs = SUBSCRIPTIONS.write().await;
+        subs.remove(&responder_id);
+    }
+    {
+        let mut active_map = SUBSCRIPTION_ACTIVE.write().await;
+        active_map.remove(&responder_id);
+    }
+}
+
+
 /// Subscribes to a subject and receives messages via a callback.
 ///
 /// This function will set up a subscription to the given subject
@@ -444,148 +588,6 @@ pub async fn list_subscriptions() -> Vec<String> {
         .collect()
 }
 
-/// Sets up a responder to handle requests on a specified subject.
-///
-/// # Arguments
-///
-/// * `subject` - The subject to listen for requests on
-/// * `responder_id` - A unique identifier for this responder
-/// * `handler` - Function that processes requests and returns responses
-/// * `on_success` - Callback function called when responder is set up successfully
-/// * `on_error` - Callback function called if responder setup fails
-#[flutter_rust_bridge::frb]
-pub async fn setup_responder(
-    subject: String,
-    responder_id: String,
-    process_request: impl Fn(String) -> DartFnFuture<String> + Send + 'static,
-    on_success: impl Fn(bool) -> DartFnFuture<()>,
-    on_error: impl Fn(String) -> DartFnFuture<()> + Send + 'static,
-) {
-    // Get the client
-    let client_guard = NATS_CLIENT.lock().await;
-    let client = match &*client_guard {
-        Some(client) => client.clone(),
-        None => {
-            drop(client_guard);
-            on_error("Not connected to NATS server".to_string()).await;
-            return;
-        }
-    };
-    drop(client_guard);
-
-    // Subscribe to the subject to receive requests
-    match client.subscribe(subject.clone()).await {
-        Ok(subscriber) => {
-            // Store the subscription
-            {
-                let mut subs = SUBSCRIPTIONS.write().await;
-                subs.insert(responder_id.clone(), subscriber);
-            }
-            {
-                let mut active_map = SUBSCRIPTION_ACTIVE.write().await;
-                active_map.insert(responder_id.clone(), true);
-            }
-
-            // Notify successful setup
-            on_success(true).await;
-
-            // Spawn a task to handle this responder
-            let responder_id_clone = responder_id.clone();
-            tokio::spawn(async move {
-                process_responder_requests(
-                    client,
-                    responder_id_clone,
-                    process_request,
-                    on_error,
-                ).await;
-            });
-        },
-        Err(e) => {
-            on_error(format!("Failed to subscribe: {}", e)).await;
-        }
-    }
-}
-
-/// Internal function to process responder requests
-async fn process_responder_requests(
-    client: Client,
-    responder_id: String,
-    process_request: impl Fn(String) -> DartFnFuture<String>,
-    on_error: impl Fn(String) -> DartFnFuture<()>,
-) {
-    loop {
-        // Check if still active
-        let is_active = {
-            let active_map = SUBSCRIPTION_ACTIVE.read().await;
-            active_map.get(&responder_id).copied().unwrap_or(false)
-        };
-
-        if !is_active {
-            break;
-        }
-
-        // Try to get the next message
-        let maybe_msg = {
-            let mut subs = SUBSCRIPTIONS.write().await;
-            if let Some(sub) = subs.get_mut(&responder_id) {
-                // Try to get the next message with a small timeout
-                tokio::time::timeout(
-                    Duration::from_millis(100),
-                    sub.next()
-                ).await.unwrap_or_else(|_| None)
-            } else {
-                None // Subscription doesn't exist anymore
-            }
-        };
-
-        // Process the message if we got one
-        if let Some(msg) = maybe_msg {
-            if let Some(reply_to) = msg.reply {
-                // Convert request payload to string
-                match String::from_utf8(msg.payload.to_vec()) {
-                    Ok(request_payload) => {
-                        // Call handler to get response
-                        let response = process_request(request_payload).await;
-
-                        // Send response back
-                        match client.publish(reply_to, response.into_bytes().into()).await {
-                            Ok(_) => {}, // Response sent successfully
-                            Err(e) => {
-                                on_error(format!("Failed to send response: {}", e)).await;
-                            }
-                        }
-                    },
-                    Err(e) => {
-                        on_error(format!("Invalid UTF-8 in request: {}", e)).await;
-                    }
-                }
-            }
-        } else {
-            // No message, check if subscription still exists
-            let sub_exists = {
-                let subs = SUBSCRIPTIONS.read().await;
-                subs.contains_key(&responder_id)
-            };
-
-            if !sub_exists {
-                break;
-            }
-
-            // Small delay to avoid busy-waiting
-            tokio::time::sleep(Duration::from_millis(50)).await;
-        }
-    }
-
-    // Clean up
-    {
-        let mut subs = SUBSCRIPTIONS.write().await;
-        subs.remove(&responder_id);
-    }
-    {
-        let mut active_map = SUBSCRIPTION_ACTIVE.write().await;
-        active_map.remove(&responder_id);
-    }
-}
 
 /// Puts a value in the key-value store using JetStream.
 #[flutter_rust_bridge::frb]
