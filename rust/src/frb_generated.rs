@@ -37,7 +37,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.8.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -874544156;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -110941864;
 
 // Section: executor
 
@@ -67,6 +67,7 @@ fn wire__crate__api__nats_manager___send_request_with_callbacks_impl(
             };
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_client_id = <String>::sse_decode(&mut deserializer);
             let api_subject = <String>::sse_decode(&mut deserializer);
             let api_payload = <String>::sse_decode(&mut deserializer);
             let api_timeout_ms = <u64>::sse_decode(&mut deserializer);
@@ -82,6 +83,7 @@ fn wire__crate__api__nats_manager___send_request_with_callbacks_impl(
                     (move || async move {
                         let output_ok = Result::<_, ()>::Ok({
                             crate::api::nats_manager::_send_request_with_callbacks(
+                                api_client_id,
                                 api_subject,
                                 api_payload,
                                 api_timeout_ms,
@@ -150,6 +152,7 @@ fn wire__crate__api__nats_manager__connect_to_nats_impl(
             };
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_client_id = <String>::sse_decode(&mut deserializer);
             let api_end_point = <String>::sse_decode(&mut deserializer);
             let api_on_success = decode_DartFn_Inputs_bool_Output_unit_AnyhowException(
                 <flutter_rust_bridge::DartOpaque>::sse_decode(&mut deserializer),
@@ -163,6 +166,7 @@ fn wire__crate__api__nats_manager__connect_to_nats_impl(
                     (move || async move {
                         let output_ok = Result::<_, ()>::Ok({
                             crate::api::nats_manager::connect_to_nats(
+                                api_client_id,
                                 api_end_point,
                                 api_on_success,
                                 api_on_failure,
@@ -199,6 +203,7 @@ fn wire__crate__api__nats_manager__disconnect_from_nats_impl(
             };
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_client_id = <String>::sse_decode(&mut deserializer);
             let api_on_success = decode_DartFn_Inputs_bool_Output_unit_AnyhowException(
                 <flutter_rust_bridge::DartOpaque>::sse_decode(&mut deserializer),
             );
@@ -211,6 +216,7 @@ fn wire__crate__api__nats_manager__disconnect_from_nats_impl(
                     (move || async move {
                         let output_ok = Result::<_, ()>::Ok({
                             crate::api::nats_manager::disconnect_from_nats(
+                                api_client_id,
                                 api_on_success,
                                 api_on_failure,
                             )
@@ -487,6 +493,7 @@ fn wire__crate__api__nats_manager__kv_delete_impl(
             };
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_client_id = <String>::sse_decode(&mut deserializer);
             let api_bucket_name = <String>::sse_decode(&mut deserializer);
             let api_key = <String>::sse_decode(&mut deserializer);
             let api_on_success = decode_DartFn_Inputs_bool_Output_unit_AnyhowException(
@@ -501,6 +508,7 @@ fn wire__crate__api__nats_manager__kv_delete_impl(
                     (move || async move {
                         let output_ok = Result::<_, ()>::Ok({
                             crate::api::nats_manager::kv_delete(
+                                api_client_id,
                                 api_bucket_name,
                                 api_key,
                                 api_on_success,
@@ -538,6 +546,7 @@ fn wire__crate__api__nats_manager__kv_get_impl(
             };
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_client_id = <String>::sse_decode(&mut deserializer);
             let api_bucket_name = <String>::sse_decode(&mut deserializer);
             let api_key = <String>::sse_decode(&mut deserializer);
             let api_on_success = decode_DartFn_Inputs_String_Output_unit_AnyhowException(
@@ -552,6 +561,7 @@ fn wire__crate__api__nats_manager__kv_get_impl(
                     (move || async move {
                         let output_ok = Result::<_, ()>::Ok({
                             crate::api::nats_manager::kv_get(
+                                api_client_id,
                                 api_bucket_name,
                                 api_key,
                                 api_on_success,
@@ -589,6 +599,7 @@ fn wire__crate__api__nats_manager__kv_put_impl(
             };
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_client_id = <String>::sse_decode(&mut deserializer);
             let api_bucket_name = <String>::sse_decode(&mut deserializer);
             let api_key = <String>::sse_decode(&mut deserializer);
             let api_value = <String>::sse_decode(&mut deserializer);
@@ -604,6 +615,7 @@ fn wire__crate__api__nats_manager__kv_put_impl(
                     (move || async move {
                         let output_ok = Result::<_, ()>::Ok({
                             crate::api::nats_manager::kv_put(
+                                api_client_id,
                                 api_bucket_name,
                                 api_key,
                                 api_value,
@@ -612,6 +624,42 @@ fn wire__crate__api__nats_manager__kv_put_impl(
                             )
                             .await;
                         })?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__nats_manager__list_clients_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "list_clients",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, ()>(
+                    (move || async move {
+                        let output_ok =
+                            Result::<_, ()>::Ok(crate::api::nats_manager::list_clients().await)?;
                         Ok(output_ok)
                     })()
                     .await,
@@ -642,12 +690,13 @@ fn wire__crate__api__nats_manager__list_subscriptions_impl(
             };
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_client_id = <String>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| async move {
                 transform_result_sse::<_, ()>(
                     (move || async move {
                         let output_ok = Result::<_, ()>::Ok(
-                            crate::api::nats_manager::list_subscriptions().await,
+                            crate::api::nats_manager::list_subscriptions(api_client_id).await,
                         )?;
                         Ok(output_ok)
                     })()
@@ -679,6 +728,7 @@ fn wire__crate__api__nats_manager__publish_impl(
             };
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_client_id = <String>::sse_decode(&mut deserializer);
             let api_subject = <String>::sse_decode(&mut deserializer);
             let api_payload = <String>::sse_decode(&mut deserializer);
             let api_on_success = decode_DartFn_Inputs_bool_Output_unit_AnyhowException(
@@ -693,6 +743,7 @@ fn wire__crate__api__nats_manager__publish_impl(
                     (move || async move {
                         let output_ok = Result::<_, ()>::Ok({
                             crate::api::nats_manager::publish(
+                                api_client_id,
                                 api_subject,
                                 api_payload,
                                 api_on_success,
@@ -770,6 +821,7 @@ fn wire__crate__api__nats_manager__send_request_impl(
             };
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_client_id = <String>::sse_decode(&mut deserializer);
             let api_subject = <String>::sse_decode(&mut deserializer);
             let api_payload = <String>::sse_decode(&mut deserializer);
             let api_timeout_ms = <u64>::sse_decode(&mut deserializer);
@@ -778,6 +830,7 @@ fn wire__crate__api__nats_manager__send_request_impl(
                 transform_result_sse::<_, String>(
                     (move || async move {
                         let output_ok = crate::api::nats_manager::send_request(
+                            api_client_id,
                             api_subject,
                             api_payload,
                             api_timeout_ms,
@@ -846,6 +899,7 @@ fn wire__crate__api__nats_manager__setup_responder_impl(
             };
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_client_id = <String>::sse_decode(&mut deserializer);
             let api_subject = <String>::sse_decode(&mut deserializer);
             let api_responder_id = <String>::sse_decode(&mut deserializer);
             let api_process_request = decode_DartFn_Inputs_String_Output_String_AnyhowException(
@@ -863,6 +917,7 @@ fn wire__crate__api__nats_manager__setup_responder_impl(
                     (move || async move {
                         let output_ok = Result::<_, ()>::Ok({
                             crate::api::nats_manager::setup_responder(
+                                api_client_id,
                                 api_subject,
                                 api_responder_id,
                                 api_process_request,
@@ -966,6 +1021,7 @@ fn wire__crate__api__nats_manager__subscribe_impl(
             };
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_client_id = <String>::sse_decode(&mut deserializer);
             let api_subject = <String>::sse_decode(&mut deserializer);
             let api_subscription_id = <String>::sse_decode(&mut deserializer);
             let api_max_messages = <u32>::sse_decode(&mut deserializer);
@@ -987,6 +1043,7 @@ fn wire__crate__api__nats_manager__subscribe_impl(
                     (move || async move {
                         let output_ok = Result::<_, ()>::Ok({
                             crate::api::nats_manager::subscribe(
+                                api_client_id,
                                 api_subject,
                                 api_subscription_id,
                                 api_max_messages,
@@ -1027,6 +1084,7 @@ fn wire__crate__api__nats_manager__unsubscribe_impl(
             };
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_client_id = <String>::sse_decode(&mut deserializer);
             let api_subscription_id = <String>::sse_decode(&mut deserializer);
             let api_on_success = decode_DartFn_Inputs_bool_Output_unit_AnyhowException(
                 <flutter_rust_bridge::DartOpaque>::sse_decode(&mut deserializer),
@@ -1040,6 +1098,7 @@ fn wire__crate__api__nats_manager__unsubscribe_impl(
                     (move || async move {
                         let output_ok = Result::<_, ()>::Ok({
                             crate::api::nats_manager::unsubscribe(
+                                api_client_id,
                                 api_subscription_id,
                                 api_on_success,
                                 api_on_failure,
@@ -1394,20 +1453,21 @@ fn pde_ffi_dispatcher_primary_impl(
         12 => wire__crate__api__nats_manager__kv_delete_impl(port, ptr, rust_vec_len, data_len),
         13 => wire__crate__api__nats_manager__kv_get_impl(port, ptr, rust_vec_len, data_len),
         14 => wire__crate__api__nats_manager__kv_put_impl(port, ptr, rust_vec_len, data_len),
-        15 => wire__crate__api__nats_manager__list_subscriptions_impl(
+        15 => wire__crate__api__nats_manager__list_clients_impl(port, ptr, rust_vec_len, data_len),
+        16 => wire__crate__api__nats_manager__list_subscriptions_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        16 => wire__crate__api__nats_manager__publish_impl(port, ptr, rust_vec_len, data_len),
-        17 => wire__crate__api__simple__rust_function_impl(port, ptr, rust_vec_len, data_len),
-        18 => wire__crate__api__nats_manager__send_request_impl(port, ptr, rust_vec_len, data_len),
-        20 => {
+        17 => wire__crate__api__nats_manager__publish_impl(port, ptr, rust_vec_len, data_len),
+        18 => wire__crate__api__simple__rust_function_impl(port, ptr, rust_vec_len, data_len),
+        19 => wire__crate__api__nats_manager__send_request_impl(port, ptr, rust_vec_len, data_len),
+        21 => {
             wire__crate__api__nats_manager__setup_responder_impl(port, ptr, rust_vec_len, data_len)
         }
-        23 => wire__crate__api__nats_manager__subscribe_impl(port, ptr, rust_vec_len, data_len),
-        24 => wire__crate__api__nats_manager__unsubscribe_impl(port, ptr, rust_vec_len, data_len),
+        24 => wire__crate__api__nats_manager__subscribe_impl(port, ptr, rust_vec_len, data_len),
+        25 => wire__crate__api__nats_manager__unsubscribe_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -1423,9 +1483,9 @@ fn pde_ffi_dispatcher_sync_impl(
         2 => wire__crate__api__rust__connect_sync_impl(ptr, rust_vec_len, data_len),
         5 => wire__crate__api__rust__disconnect_sync_impl(ptr, rust_vec_len, data_len),
         8 => wire__crate__api__simple__greet_impl(ptr, rust_vec_len, data_len),
-        19 => wire__crate__api__rust__send_request_sync_impl(ptr, rust_vec_len, data_len),
-        21 => wire__crate__api__rust__start_responder_sync_impl(ptr, rust_vec_len, data_len),
-        22 => wire__crate__api__rust__stop_responder_sync_impl(ptr, rust_vec_len, data_len),
+        20 => wire__crate__api__rust__send_request_sync_impl(ptr, rust_vec_len, data_len),
+        22 => wire__crate__api__rust__start_responder_sync_impl(ptr, rust_vec_len, data_len),
+        23 => wire__crate__api__rust__stop_responder_sync_impl(ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }

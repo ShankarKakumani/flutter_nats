@@ -6,103 +6,90 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `get_or_create_kv_store`, `process_responder_requests`, `process_subscription_messages`
+// These functions are ignored because they are not marked as `pub`: `cleanup_client_subscriptions`, `cleanup_subscription`, `get_client`, `get_jetstream`, `get_kv_store_with_callback`, `get_next_message`, `get_or_create_kv_store`, `is_subscription_active`, `process_responder_requests`, `process_subscription_messages`, `subscription_exists`
 
-/// Connects to a NATS server and calls appropriate callback based on result.
+/// Connects to a NATS server with the specified client ID and calls appropriate callback based on result.
 Future<void> connectToNats(
-        {required String endPoint,
+        {required String clientId,
+        required String endPoint,
         required FutureOr<void> Function(bool) onSuccess,
         required FutureOr<void> Function(String) onFailure}) =>
     RustLib.instance.api.crateApiNatsManagerConnectToNats(
-        endPoint: endPoint, onSuccess: onSuccess, onFailure: onFailure);
+        clientId: clientId,
+        endPoint: endPoint,
+        onSuccess: onSuccess,
+        onFailure: onFailure);
 
-/// Disconnects from the NATS server if currently connected.
-///
-/// # Arguments
-///
-/// * `on_success` - Callback function called when disconnect is successful
-/// * `on_failure` - Callback function called with error message if disconnect fails
+/// Disconnects a specific client from the NATS server.
 Future<void> disconnectFromNats(
-        {required FutureOr<void> Function(bool) onSuccess,
+        {required String clientId,
+        required FutureOr<void> Function(bool) onSuccess,
         required FutureOr<void> Function(String) onFailure}) =>
     RustLib.instance.api.crateApiNatsManagerDisconnectFromNats(
-        onSuccess: onSuccess, onFailure: onFailure);
+        clientId: clientId, onSuccess: onSuccess, onFailure: onFailure);
 
-/// Sends a request to NATS server and returns the response.
-///
-/// # Arguments
-///
-/// * `subject` - The subject to publish the request to
-/// * `payload` - The message payload as a string
-/// * `timeout_ms` - Request timeout in milliseconds
-///
-/// # Returns
-///
-/// * `Result<String, String>` - The response payload or an error message
+/// Sends a request to NATS server using the specified client and returns the response.
 Future<String> sendRequest(
-        {required String subject,
+        {required String clientId,
+        required String subject,
         required String payload,
         required BigInt timeoutMs}) =>
     RustLib.instance.api.crateApiNatsManagerSendRequest(
-        subject: subject, payload: payload, timeoutMs: timeoutMs);
+        clientId: clientId,
+        subject: subject,
+        payload: payload,
+        timeoutMs: timeoutMs);
 
-/// Sends a request to NATS server and handles response via callbacks.
-///
-/// # Arguments
-///
-/// * `subject` - The subject to publish the request to
-/// * `payload` - The message payload as a string
-/// * `timeout_ms` - Request timeout in milliseconds
-/// * `on_success` - Callback function called with response on success
-/// * `on_failure` - Callback function called with error message on failure
+/// Sends a request to NATS server using the specified client and handles response via callbacks.
 Future<void> sendRequestWithCallbacks(
-        {required String subject,
+        {required String clientId,
+        required String subject,
         required String payload,
         required BigInt timeoutMs,
         required FutureOr<void> Function(String) onSuccess,
         required FutureOr<void> Function(String) onFailure}) =>
     RustLib.instance.api.crateApiNatsManagerSendRequestWithCallbacks(
+        clientId: clientId,
         subject: subject,
         payload: payload,
         timeoutMs: timeoutMs,
         onSuccess: onSuccess,
         onFailure: onFailure);
 
-/// Publishes a message to the specified subject.
-///
-/// # Arguments
-///
-/// * `subject` - The subject to publish the message to
-/// * `payload` - The message payload as a string
-/// * `on_success` - Callback function called when publish is successful
-/// * `on_failure` - Callback function called with error message if publish fails
+/// Publishes a message to the specified subject using the specified client.
 Future<void> publish(
-        {required String subject,
+        {required String clientId,
+        required String subject,
         required String payload,
         required FutureOr<void> Function(bool) onSuccess,
         required FutureOr<void> Function(String) onFailure}) =>
     RustLib.instance.api.crateApiNatsManagerPublish(
+        clientId: clientId,
         subject: subject,
         payload: payload,
         onSuccess: onSuccess,
         onFailure: onFailure);
 
-/// Subscribes to a subject and receives messages via a callback.
-///
-/// This function will set up a subscription to the given subject
-/// and call the provided callbacks when messages are received.
-///
-/// # Arguments
-///
-/// * `subject` - The subject to subscribe to (can include wildcards)
-/// * `subscription_id` - A unique identifier for this subscription
-/// * `max_messages` - Maximum number of messages to process (0 for unlimited)
-/// * `on_message` - Callback function called when a message is received
-/// * `on_success` - Callback function called when subscription is successful
-/// * `on_error` - Callback function called if subscription fails
-/// * `on_done` - Callback function called when subscription ends
+/// Sets up a responder to handle requests on a specified subject using the specified client.
+Future<void> setupResponder(
+        {required String clientId,
+        required String subject,
+        required String responderId,
+        required FutureOr<String> Function(String) processRequest,
+        required FutureOr<void> Function(bool) onSuccess,
+        required FutureOr<void> Function(String) onError}) =>
+    RustLib.instance.api.crateApiNatsManagerSetupResponder(
+        clientId: clientId,
+        subject: subject,
+        responderId: responderId,
+        processRequest: processRequest,
+        onSuccess: onSuccess,
+        onError: onError);
+
+/// Subscribes to a subject and receives messages via a callback using the specified client.
 Future<void> subscribe(
-        {required String subject,
+        {required String clientId,
+        required String subject,
         required String subscriptionId,
         required int maxMessages,
         required FutureOr<void> Function(String, String) onMessage,
@@ -110,6 +97,7 @@ Future<void> subscribe(
         required FutureOr<void> Function(String) onError,
         required FutureOr<void> Function() onDone}) =>
     RustLib.instance.api.crateApiNatsManagerSubscribe(
+        clientId: clientId,
         subject: subject,
         subscriptionId: subscriptionId,
         maxMessages: maxMessages,
@@ -118,85 +106,66 @@ Future<void> subscribe(
         onError: onError,
         onDone: onDone);
 
-/// Unsubscribes from a subject.
-///
-/// # Arguments
-///
-/// * `subscription_id` - The unique identifier of the subscription to cancel
-/// * `on_success` - Callback function called when unsubscribe is successful
-/// * `on_failure` - Callback function called with error message if unsubscribe fails
+/// Unsubscribes from a subject for the specified client.
 Future<void> unsubscribe(
-        {required String subscriptionId,
+        {required String clientId,
+        required String subscriptionId,
         required FutureOr<void> Function(bool) onSuccess,
         required FutureOr<void> Function(String) onFailure}) =>
     RustLib.instance.api.crateApiNatsManagerUnsubscribe(
+        clientId: clientId,
         subscriptionId: subscriptionId,
         onSuccess: onSuccess,
         onFailure: onFailure);
 
-/// Returns a list of active subscription IDs.
-///
-/// # Returns
-///
-/// * `Vec<String>` - List of active subscription IDs
-Future<List<String>> listSubscriptions() =>
-    RustLib.instance.api.crateApiNatsManagerListSubscriptions();
+/// Returns a list of active subscription IDs for the specified client.
+Future<List<String>> listSubscriptions({required String clientId}) =>
+    RustLib.instance.api
+        .crateApiNatsManagerListSubscriptions(clientId: clientId);
 
-/// Sets up a responder to handle requests on a specified subject.
-///
-/// # Arguments
-///
-/// * `subject` - The subject to listen for requests on
-/// * `responder_id` - A unique identifier for this responder
-/// * `handler` - Function that processes requests and returns responses
-/// * `on_success` - Callback function called when responder is set up successfully
-/// * `on_error` - Callback function called if responder setup fails
-Future<void> setupResponder(
-        {required String subject,
-        required String responderId,
-        required FutureOr<String> Function(String) processRequest,
-        required FutureOr<void> Function(bool) onSuccess,
-        required FutureOr<void> Function(String) onError}) =>
-    RustLib.instance.api.crateApiNatsManagerSetupResponder(
-        subject: subject,
-        responderId: responderId,
-        processRequest: processRequest,
-        onSuccess: onSuccess,
-        onError: onError);
+/// Returns a list of connected client IDs.
+Future<List<String>> listClients() =>
+    RustLib.instance.api.crateApiNatsManagerListClients();
 
-/// Puts a value in the key-value store using JetStream.
+/// Puts a value in the key-value store using JetStream for the specified client.
 Future<void> kvPut(
-        {required String bucketName,
+        {required String clientId,
+        required String bucketName,
         required String key,
         required String value,
         required FutureOr<void> Function(bool) onSuccess,
         required FutureOr<void> Function(String) onFailure}) =>
     RustLib.instance.api.crateApiNatsManagerKvPut(
+        clientId: clientId,
         bucketName: bucketName,
         key: key,
         value: value,
         onSuccess: onSuccess,
         onFailure: onFailure);
 
-/// Gets a value from the key-value store using JetStream.
+/// Gets a value from the key-value store using JetStream for the specified client.
 Future<void> kvGet(
-        {required String bucketName,
+        {required String clientId,
+        required String bucketName,
         required String key,
         required FutureOr<void> Function(String) onSuccess,
         required FutureOr<void> Function(String) onFailure}) =>
     RustLib.instance.api.crateApiNatsManagerKvGet(
+        clientId: clientId,
         bucketName: bucketName,
         key: key,
         onSuccess: onSuccess,
         onFailure: onFailure);
 
-/// Deletes a key from the key-value store using JetStream.
+/// Deletes a key from the key-value store using JetStream for the specified client.
 Future<void> kvDelete(
-        {required String bucketName,
+        {required String clientId,
+        required String bucketName,
         required String key,
         required FutureOr<void> Function(bool) onSuccess,
         required FutureOr<void> Function(String) onFailure}) =>
     RustLib.instance.api.crateApiNatsManagerKvDelete(
+        clientId: clientId,
         bucketName: bucketName,
         key: key,
         onSuccess: onSuccess,

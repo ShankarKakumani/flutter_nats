@@ -3,32 +3,32 @@ use flutter_rust_bridge::DartFnFuture;
 use std::time::Duration;
 use anyhow::Result;
 use std::sync::Arc;
-use tokio::sync::Mutex;
 use once_cell::sync::Lazy;
 use tokio::sync::RwLock;
 use std::collections::HashMap;
 use tokio_stream::StreamExt;
 
-// A thread-safe wrapper around the NATS client
-static NATS_CLIENT: Lazy<Arc<Mutex<Option<Client>>>> = Lazy::new(|| {
-    Arc::new(Mutex::new(None))
-});
+/// Multiple clients support for NATS
+type ClientId = String;
+type SubscriptionId = String;
 
-// Store JetStream Key-Value contexts
-static KV_STORES: Lazy<Arc<RwLock<HashMap<String, async_nats::jetstream::kv::Store>>>> = Lazy::new(|| {
+// A thread-safe map of client IDs to NATS clients
+static NATS_CLIENTS: Lazy<Arc<RwLock<HashMap<ClientId, Client>>>> = Lazy::new(|| {
     Arc::new(RwLock::new(HashMap::new()))
 });
 
-// Store active subscription information
-type SubscriptionId = String;
+// Store JetStream Key-Value contexts per client
+static KV_STORES: Lazy<Arc<RwLock<HashMap<(ClientId, String), async_nats::jetstream::kv::Store>>>> = Lazy::new(|| {
+    Arc::new(RwLock::new(HashMap::new()))
+});
 
-// Store active subscriptions
-static SUBSCRIPTIONS: Lazy<Arc<RwLock<HashMap<SubscriptionId, async_nats::Subscriber>>>> = Lazy::new(|| {
+// Store active subscriptions per client
+static SUBSCRIPTIONS: Lazy<Arc<RwLock<HashMap<(ClientId, SubscriptionId), async_nats::Subscriber>>>> = Lazy::new(|| {
     Arc::new(RwLock::new(HashMap::new()))
 });
 
 // Store a flag for each subscription indicating if it should continue
-static SUBSCRIPTION_ACTIVE: Lazy<Arc<RwLock<HashMap<SubscriptionId, bool>>>> = Lazy::new(|| {
+static SUBSCRIPTION_ACTIVE: Lazy<Arc<RwLock<HashMap<(ClientId, SubscriptionId), bool>>>> = Lazy::new(|| {
     Arc::new(RwLock::new(HashMap::new()))
 });
 
@@ -38,116 +38,129 @@ pub fn init_app() {
     flutter_rust_bridge::setup_default_user_utils();
 }
 
-/// Connects to a NATS server and calls appropriate callback based on result.
+/// Helper function to get a client by ID with proper error handling
+async fn get_client(client_id: &str) -> Result<Client, String> {
+    let clients = NATS_CLIENTS.read().await;
+    clients.get(client_id)
+        .cloned()
+        .ok_or_else(|| format!("Client with ID '{}' not found", client_id))
+}
+
+/// Connects to a NATS server with the specified client ID and calls appropriate callback based on result.
 #[flutter_rust_bridge::frb]
 pub async fn connect_to_nats(
+    client_id: String,
     end_point: String,
     on_success: impl Fn(bool) -> DartFnFuture<()>,
     on_failure: impl Fn(String) -> DartFnFuture<()>,
 ) {
-    let result = async_nats::connect(end_point).await;
+    // Check if this client ID already exists
+    {
+        let clients = NATS_CLIENTS.read().await;
+        if clients.contains_key(&client_id) {
+            drop(clients);
+            on_failure(format!("Client with ID '{}' already exists", client_id)).await;
+            return;
+        }
+    }
 
-    let mut client_guard = NATS_CLIENT.lock().await;
-    match result {
+    // Connect to the NATS server
+    match async_nats::connect(end_point).await {
         Ok(client) => {
-            *client_guard = Some(client);
-            drop(client_guard); // Release the lock before the callback
+            // Store the new client
+            {
+                let mut clients = NATS_CLIENTS.write().await;
+                clients.insert(client_id, client);
+            }
             on_success(true).await;
         }
         Err(e) => {
-            drop(client_guard); // Release the lock before the callback
             on_failure(e.to_string()).await;
         }
     }
 }
 
-/// Disconnects from the NATS server if currently connected.
-///
-/// # Arguments
-///
-/// * `on_success` - Callback function called when disconnect is successful
-/// * `on_failure` - Callback function called with error message if disconnect fails
-#[flutter_rust_bridge::frb]
-pub async fn disconnect_from_nats(
-    on_success: impl Fn(bool) -> DartFnFuture<()>,
-    on_failure: impl Fn(String) -> DartFnFuture<()>,
-) {
-    // First, mark all subscriptions as inactive
+/// Helper function to clean up all subscriptions for a client
+async fn cleanup_client_subscriptions(client_id: &str) {
+    // First, mark all subscriptions for this client as inactive
     {
         let mut active_map = SUBSCRIPTION_ACTIVE.write().await;
-        for (_, active) in active_map.iter_mut() {
-            *active = false;
+        let client_subs: Vec<(ClientId, SubscriptionId)> = active_map.keys()
+            .filter(|(cid, _)| cid == client_id)
+            .cloned()
+            .collect();
+
+        for key in client_subs {
+            if let Some(active) = active_map.get_mut(&key) {
+                *active = false;
+            }
         }
     }
 
     // Wait a bit to allow subscription tasks to clean up
     tokio::time::sleep(Duration::from_millis(200)).await;
 
-    // Clear all subscriptions
+    // Clear all subscriptions for this client
     {
         let mut subs = SUBSCRIPTIONS.write().await;
-        subs.clear();
+        subs.retain(|(cid, _), _| cid != client_id);
     }
 
-    // Clear active flags
+    // Clear active flags for this client
     {
         let mut active_map = SUBSCRIPTION_ACTIVE.write().await;
-        active_map.clear();
+        active_map.retain(|(cid, _), _| cid != client_id);
     }
 
-    // Disconnect the client
-    let mut client_guard = NATS_CLIENT.lock().await;
-    match client_guard.take() {
-        Some(client) => {
-            // Drop the client to close the connection
-            drop(client);
-            drop(client_guard); // Release the lock before the callback
-            on_success(true).await;
-        },
-        None => {
-            drop(client_guard); // Release the lock before the callback
-            on_failure("Not connected to any NATS server".to_string()).await;
-        }
+    // Clean up KV stores for this client
+    {
+        let mut kv_stores = KV_STORES.write().await;
+        kv_stores.retain(|(cid, _), _| cid != client_id);
     }
 }
 
-/// Sends a request to NATS server and returns the response.
-///
-/// # Arguments
-///
-/// * `subject` - The subject to publish the request to
-/// * `payload` - The message payload as a string
-/// * `timeout_ms` - Request timeout in milliseconds
-///
-/// # Returns
-///
-/// * `Result<String, String>` - The response payload or an error message
+/// Disconnects a specific client from the NATS server.
+#[flutter_rust_bridge::frb]
+pub async fn disconnect_from_nats(
+    client_id: String,
+    on_success: impl Fn(bool) -> DartFnFuture<()>,
+    on_failure: impl Fn(String) -> DartFnFuture<()>,
+) {
+    // Clean up all subscriptions first
+    cleanup_client_subscriptions(&client_id).await;
+
+    // Disconnect the client
+    let mut clients = NATS_CLIENTS.write().await;
+    if let Some(client) = clients.remove(&client_id) {
+        // Drop the client to close the connection
+        drop(client);
+        drop(clients);
+        on_success(true).await;
+    } else {
+        drop(clients);
+        on_failure(format!("Client with ID '{}' not found", client_id)).await;
+    }
+}
+
+/// Sends a request to NATS server using the specified client and returns the response.
 #[flutter_rust_bridge::frb]
 pub async fn send_request(
+    client_id: String,
     subject: String,
     payload: String,
     timeout_ms: u64,
 ) -> Result<String, String> {
-    let client_guard = NATS_CLIENT.lock().await;
-
-    // Check if we have a client
-    let client = match &*client_guard {
-        Some(client) => client,
-        None => return Err("Not connected to NATS server".to_string()),
-    };
+    // Get the client
+    let client = get_client(&client_id).await?;
 
     // Create payload as bytes
     let payload_bytes = payload.into_bytes();
     let timeout = Duration::from_millis(timeout_ms);
 
-    // Clone the client to avoid holding the lock during the request
-    let client_clone = client.clone();
-    drop(client_guard);
-
     // Send request with timeout
     let response = tokio::time::timeout(
         timeout,
-        client_clone.request(subject, payload_bytes.into()),
+        client.request(subject, payload_bytes.into()),
     )
         .await
         .map_err(|_| "Request timed out".to_string())?
@@ -158,25 +171,18 @@ pub async fn send_request(
         .map_err(|e| format!("Invalid UTF-8 in response: {}", e))
 }
 
-/// Sends a request to NATS server and handles response via callbacks.
-///
-/// # Arguments
-///
-/// * `subject` - The subject to publish the request to
-/// * `payload` - The message payload as a string
-/// * `timeout_ms` - Request timeout in milliseconds
-/// * `on_success` - Callback function called with response on success
-/// * `on_failure` - Callback function called with error message on failure
+/// Sends a request to NATS server using the specified client and handles response via callbacks.
 #[flutter_rust_bridge::frb]
 pub async fn _send_request_with_callbacks(
+    client_id: String,
     subject: String,
     payload: String,
     timeout_ms: u64,
     on_success: impl Fn(String) -> DartFnFuture<()>,
     on_failure: impl Fn(String) -> DartFnFuture<()>,
 ) {
-    // Use the _sendRequest function and handle its result with callbacks
-    match send_request(subject, payload, timeout_ms).await {
+    // Use the send_request function and handle its result with callbacks
+    match send_request(client_id, subject, payload, timeout_ms).await {
         Ok(response) => {
             on_success(response).await;
         }
@@ -186,60 +192,41 @@ pub async fn _send_request_with_callbacks(
     }
 }
 
-/// Publishes a message to the specified subject.
-///
-/// # Arguments
-///
-/// * `subject` - The subject to publish the message to
-/// * `payload` - The message payload as a string
-/// * `on_success` - Callback function called when publish is successful
-/// * `on_failure` - Callback function called with error message if publish fails
+/// Publishes a message to the specified subject using the specified client.
 #[flutter_rust_bridge::frb]
 pub async fn publish(
+    client_id: String,
     subject: String,
     payload: String,
     on_success: impl Fn(bool) -> DartFnFuture<()>,
     on_failure: impl Fn(String) -> DartFnFuture<()>,
 ) {
-    let client_guard = NATS_CLIENT.lock().await;
+    // Get the client
+    match get_client(&client_id).await {
+        Ok(client) => {
+            // Create payload as bytes
+            let payload_bytes = payload.into_bytes();
 
-    // Check if we have a client
-    let client = match &*client_guard {
-        Some(client) => client.clone(),
-        None => {
-            drop(client_guard);
-            on_failure("Not connected to NATS server".to_string()).await;
-            return;
-        }
-    };
-
-    drop(client_guard);
-
-    // Create payload as bytes
-    let payload_bytes = payload.into_bytes();
-
-    // Publish the message
-    match client.publish(subject, payload_bytes.into()).await {
-        Ok(_) => {
-            on_success(true).await;
+            // Publish the message
+            match client.publish(subject, payload_bytes.into()).await {
+                Ok(_) => {
+                    on_success(true).await;
+                },
+                Err(e) => {
+                    on_failure(e.to_string()).await;
+                }
+            }
         },
         Err(e) => {
-            on_failure(e.to_string()).await;
+            on_failure(e).await;
         }
     }
 }
 
-/// Sets up a responder to handle requests on a specified subject.
-///
-/// # Arguments
-///
-/// * `subject` - The subject to listen for requests on
-/// * `responder_id` - A unique identifier for this responder
-/// * `handler` - Function that processes requests and returns responses
-/// * `on_success` - Callback function called when responder is set up successfully
-/// * `on_error` - Callback function called if responder setup fails
+/// Sets up a responder to handle requests on a specified subject using the specified client.
 #[flutter_rust_bridge::frb]
 pub async fn setup_responder(
+    client_id: String,
     subject: String,
     responder_id: String,
     process_request: impl Fn(String) -> DartFnFuture<String> + Send + 'static,
@@ -247,16 +234,26 @@ pub async fn setup_responder(
     on_error: impl Fn(String) -> DartFnFuture<()> + Send + 'static,
 ) {
     // Get the client
-    let client_guard = NATS_CLIENT.lock().await;
-    let client = match &*client_guard {
-        Some(client) => client.clone(),
-        None => {
-            drop(client_guard);
-            on_error("Not connected to NATS server".to_string()).await;
+    let client = match get_client(&client_id).await {
+        Ok(client) => client,
+        Err(e) => {
+            on_error(e).await;
             return;
         }
     };
-    drop(client_guard);
+
+    // Create a unique key for this subscription
+    let sub_key = (client_id.clone(), responder_id.clone());
+
+    // Check if this responder already exists
+    {
+        let subs = SUBSCRIPTIONS.read().await;
+        if subs.contains_key(&sub_key) {
+            drop(subs);
+            on_error(format!("Responder '{}' for client '{}' already exists", responder_id, client_id)).await;
+            return;
+        }
+    }
 
     // Subscribe to the subject to receive requests
     match client.subscribe(subject.clone()).await {
@@ -264,22 +261,22 @@ pub async fn setup_responder(
             // Store the subscription
             {
                 let mut subs = SUBSCRIPTIONS.write().await;
-                subs.insert(responder_id.clone(), subscriber);
+                subs.insert(sub_key.clone(), subscriber);
             }
             {
                 let mut active_map = SUBSCRIPTION_ACTIVE.write().await;
-                active_map.insert(responder_id.clone(), true);
+                active_map.insert(sub_key.clone(), true);
             }
 
             // Notify successful setup
             on_success(true).await;
 
             // Spawn a task to handle this responder
-            let responder_id_clone = responder_id.clone();
+            let sub_key_clone = sub_key.clone();
             tokio::spawn(async move {
                 process_responder_requests(
                     client,
-                    responder_id_clone,
+                    sub_key_clone,
                     process_request,
                     on_error,
                 ).await;
@@ -291,37 +288,47 @@ pub async fn setup_responder(
     }
 }
 
+/// Helper function to safely get the next message from a subscription
+async fn get_next_message(sub_key: &(ClientId, SubscriptionId)) -> Option<async_nats::Message> {
+    let mut subs = SUBSCRIPTIONS.write().await;
+    if let Some(sub) = subs.get_mut(sub_key) {
+        // Try to get the next message with a small timeout
+        tokio::time::timeout(
+            Duration::from_millis(100),
+            sub.next()
+        ).await.unwrap_or_else(|_| None)
+    } else {
+        None // Subscription doesn't exist anymore
+    }
+}
+
+/// Helper function to check if a subscription is active
+async fn is_subscription_active(sub_key: &(ClientId, SubscriptionId)) -> bool {
+    let active_map = SUBSCRIPTION_ACTIVE.read().await;
+    active_map.get(sub_key).copied().unwrap_or(false)
+}
+
+/// Helper function to check if a subscription exists
+async fn subscription_exists(sub_key: &(ClientId, SubscriptionId)) -> bool {
+    let subs = SUBSCRIPTIONS.read().await;
+    subs.contains_key(sub_key)
+}
+
 /// Internal function to process responder requests
 async fn process_responder_requests(
     client: Client,
-    responder_id: String,
+    sub_key: (ClientId, SubscriptionId),
     process_request: impl Fn(String) -> DartFnFuture<String>,
     on_error: impl Fn(String) -> DartFnFuture<()>,
 ) {
     loop {
         // Check if still active
-        let is_active = {
-            let active_map = SUBSCRIPTION_ACTIVE.read().await;
-            active_map.get(&responder_id).copied().unwrap_or(false)
-        };
-
-        if !is_active {
+        if !is_subscription_active(&sub_key).await {
             break;
         }
 
         // Try to get the next message
-        let maybe_msg = {
-            let mut subs = SUBSCRIPTIONS.write().await;
-            if let Some(sub) = subs.get_mut(&responder_id) {
-                // Try to get the next message with a small timeout
-                tokio::time::timeout(
-                    Duration::from_millis(100),
-                    sub.next()
-                ).await.unwrap_or_else(|_| None)
-            } else {
-                None // Subscription doesn't exist anymore
-            }
-        };
+        let maybe_msg = get_next_message(&sub_key).await;
 
         // Process the message if we got one
         if let Some(msg) = maybe_msg {
@@ -347,12 +354,7 @@ async fn process_responder_requests(
             }
         } else {
             // No message, check if subscription still exists
-            let sub_exists = {
-                let subs = SUBSCRIPTIONS.read().await;
-                subs.contains_key(&responder_id)
-            };
-
-            if !sub_exists {
+            if !subscription_exists(&sub_key).await {
                 break;
             }
 
@@ -361,34 +363,26 @@ async fn process_responder_requests(
         }
     }
 
+    cleanup_subscription(&sub_key).await;
+}
+
+/// Helper function to clean up a subscription
+async fn cleanup_subscription(sub_key: &(ClientId, SubscriptionId)) {
     // Clean up
     {
         let mut subs = SUBSCRIPTIONS.write().await;
-        subs.remove(&responder_id);
+        subs.remove(sub_key);
     }
     {
         let mut active_map = SUBSCRIPTION_ACTIVE.write().await;
-        active_map.remove(&responder_id);
+        active_map.remove(sub_key);
     }
 }
 
-
-/// Subscribes to a subject and receives messages via a callback.
-///
-/// This function will set up a subscription to the given subject
-/// and call the provided callbacks when messages are received.
-///
-/// # Arguments
-///
-/// * `subject` - The subject to subscribe to (can include wildcards)
-/// * `subscription_id` - A unique identifier for this subscription
-/// * `max_messages` - Maximum number of messages to process (0 for unlimited)
-/// * `on_message` - Callback function called when a message is received
-/// * `on_success` - Callback function called when subscription is successful
-/// * `on_error` - Callback function called if subscription fails
-/// * `on_done` - Callback function called when subscription ends
+/// Subscribes to a subject and receives messages via a callback using the specified client.
 #[flutter_rust_bridge::frb]
 pub async fn subscribe(
+    client_id: String,
     subject: String,
     subscription_id: String,
     max_messages: u32,
@@ -398,23 +392,23 @@ pub async fn subscribe(
     on_done: impl Fn() -> DartFnFuture<()> + Send + 'static,
 ) {
     // Get the client
-    let client_guard = NATS_CLIENT.lock().await;
-    let client = match &*client_guard {
-        Some(client) => client.clone(),
-        None => {
-            drop(client_guard);
-            on_error("Not connected to NATS server".to_string()).await;
+    let client = match get_client(&client_id).await {
+        Ok(client) => client,
+        Err(e) => {
+            on_error(e).await;
             return;
         }
     };
-    drop(client_guard);
+
+    // Create a unique key for this subscription
+    let sub_key = (client_id.clone(), subscription_id.clone());
 
     // Check if we already have this subscription
     {
         let subs = SUBSCRIPTIONS.read().await;
-        if subs.contains_key(&subscription_id) {
+        if subs.contains_key(&sub_key) {
             drop(subs);
-            on_error(format!("Subscription '{}' already exists", subscription_id)).await;
+            on_error(format!("Subscription '{}' for client '{}' already exists", subscription_id, client_id)).await;
             return;
         }
     }
@@ -425,11 +419,11 @@ pub async fn subscribe(
             // Store the subscription and mark it as active
             {
                 let mut subs = SUBSCRIPTIONS.write().await;
-                subs.insert(subscription_id.clone(), subscriber);
+                subs.insert(sub_key.clone(), subscriber);
             }
             {
                 let mut active_map = SUBSCRIPTION_ACTIVE.write().await;
-                active_map.insert(subscription_id.clone(), true);
+                active_map.insert(sub_key.clone(), true);
             }
 
             // Notify successful subscription
@@ -437,12 +431,12 @@ pub async fn subscribe(
 
             // Spawn a task to handle this subscription
             let subject_clone = subject.clone();
-            let subscription_id_clone = subscription_id.clone();
+            let sub_key_clone = sub_key.clone();
 
             tokio::spawn(async move {
                 process_subscription_messages(
                     subject_clone,
-                    subscription_id_clone,
+                    sub_key_clone,
                     max_messages,
                     on_message,
                     on_error,
@@ -459,7 +453,7 @@ pub async fn subscribe(
 /// Internal function to process subscription messages
 async fn process_subscription_messages(
     subject: String,
-    subscription_id: String,
+    sub_key: (ClientId, SubscriptionId),
     max_messages: u32,
     on_message: impl Fn(String, String) -> DartFnFuture<()>,
     on_error: impl Fn(String) -> DartFnFuture<()>,
@@ -470,12 +464,7 @@ async fn process_subscription_messages(
 
     loop {
         // Check if we should continue (subscription is active)
-        let should_continue = {
-            let active_map = SUBSCRIPTION_ACTIVE.read().await;
-            active_map.get(&subscription_id).copied().unwrap_or(false)
-        };
-
-        if !should_continue {
+        if !is_subscription_active(&sub_key).await {
             break;
         }
 
@@ -485,18 +474,7 @@ async fn process_subscription_messages(
         }
 
         // Get the next message
-        let maybe_msg = {
-            let mut subs = SUBSCRIPTIONS.write().await;
-            if let Some(sub) = subs.get_mut(&subscription_id) {
-                // Try to get the next message with a small timeout
-                tokio::time::timeout(
-                    Duration::from_millis(100),
-                    sub.next()
-                ).await.unwrap_or_else(|_| None)
-            } else {
-                None // Subscription doesn't exist anymore
-            }
-        };
+        let maybe_msg = get_next_message(&sub_key).await;
 
         // Process the message if we got one
         match maybe_msg {
@@ -514,12 +492,7 @@ async fn process_subscription_messages(
             },
             None => {
                 // No message, check if subscription still exists
-                let sub_exists = {
-                    let subs = SUBSCRIPTIONS.read().await;
-                    subs.contains_key(&subscription_id)
-                };
-
-                if !sub_exists {
+                if !subscription_exists(&sub_key).await {
                     break;
                 }
 
@@ -530,36 +503,27 @@ async fn process_subscription_messages(
     }
 
     // Subscription ended, clean up
-    {
-        let mut subs = SUBSCRIPTIONS.write().await;
-        subs.remove(&subscription_id);
-    }
-    {
-        let mut active_map = SUBSCRIPTION_ACTIVE.write().await;
-        active_map.remove(&subscription_id);
-    }
+    cleanup_subscription(&sub_key).await;
 
     // Notify completion
     on_done().await;
 }
 
-/// Unsubscribes from a subject.
-///
-/// # Arguments
-///
-/// * `subscription_id` - The unique identifier of the subscription to cancel
-/// * `on_success` - Callback function called when unsubscribe is successful
-/// * `on_failure` - Callback function called with error message if unsubscribe fails
+/// Unsubscribes from a subject for the specified client.
 #[flutter_rust_bridge::frb]
 pub async fn unsubscribe(
+    client_id: String,
     subscription_id: String,
     on_success: impl Fn(bool) -> DartFnFuture<()>,
     on_failure: impl Fn(String) -> DartFnFuture<()>,
 ) {
+    // Create the unique key for this subscription
+    let sub_key = (client_id.clone(), subscription_id.clone());
+
     // Mark the subscription as inactive
     let exists = {
         let mut active_map = SUBSCRIPTION_ACTIVE.write().await;
-        if let Some(active) = active_map.get_mut(&subscription_id) {
+        if let Some(active) = active_map.get_mut(&sub_key) {
             *active = false;
             true
         } else {
@@ -570,60 +534,79 @@ pub async fn unsubscribe(
     if exists {
         on_success(true).await;
     } else {
-        on_failure(format!("Subscription '{}' not found", subscription_id)).await;
+        on_failure(format!("Subscription '{}' for client '{}' not found", subscription_id, client_id)).await;
     }
 }
 
-/// Returns a list of active subscription IDs.
-///
-/// # Returns
-///
-/// * `Vec<String>` - List of active subscription IDs
+/// Returns a list of active subscription IDs for the specified client.
 #[flutter_rust_bridge::frb]
-pub async fn list_subscriptions() -> Vec<String> {
+pub async fn list_subscriptions(client_id: String) -> Vec<String> {
     let active_map = SUBSCRIPTION_ACTIVE.read().await;
     active_map.iter()
-        .filter(|(_, &active)| active)
-        .map(|(id, _)| id.clone())
+        .filter(|((cid, _), active)| cid == &client_id && **active)
+        .map(|((_, id), _)| id.clone())
         .collect()
 }
 
+/// Returns a list of connected client IDs.
+#[flutter_rust_bridge::frb]
+pub async fn list_clients() -> Vec<String> {
+    let clients = NATS_CLIENTS.read().await;
+    clients.keys().cloned().collect()
+}
 
-/// Puts a value in the key-value store using JetStream.
+/// Helper function to get a JetStream context for a client
+async fn get_jetstream(client_id: &str) -> Result<(Client, async_nats::jetstream::Context), String> {
+    let client = get_client(client_id).await?;
+    let jetstream = async_nats::jetstream::new(client.clone());
+    Ok((client, jetstream))
+}
+
+/// Helper function to get a KV store with error handling via callback
+async fn get_kv_store_with_callback<F>(
+    client_id: &str,
+    bucket_name: &str,
+    on_failure: &F
+) -> Option<async_nats::jetstream::kv::Store>
+where
+    F: Fn(String) -> DartFnFuture<()>,
+{
+    // Get the client and JetStream context
+    let (_, jetstream) = match get_jetstream(client_id).await {
+        Ok(result) => result,
+        Err(e) => {
+            on_failure(e).await;
+            return None;
+        }
+    };
+
+    // Get or create the KV store
+    match get_or_create_kv_store(&jetstream, client_id, bucket_name).await {
+        Ok(store) => Some(store),
+        Err(e) => {
+            on_failure(format!("Failed to access KV bucket: {}", e)).await;
+            None
+        }
+    }
+}
+
+/// Puts a value in the key-value store using JetStream for the specified client.
 #[flutter_rust_bridge::frb]
 pub async fn kv_put(
+    client_id: String,
     bucket_name: String,
     key: String,
     value: String,
     on_success: impl Fn(bool) -> DartFnFuture<()>,
     on_failure: impl Fn(String) -> DartFnFuture<()>,
 ) {
-    // Get the client
-    let client_guard = NATS_CLIENT.lock().await;
-    let client = match &*client_guard {
-        Some(client) => client.clone(),
-        None => {
-            drop(client_guard);
-            on_failure("Not connected to NATS server".to_string()).await;
-            return;
-        }
-    };
-    drop(client_guard);
-
-    // Get or create the JetStream context
-    let jetstream = async_nats::jetstream::new(client);
-
-    // Get or create the KV store
-    let store = match get_or_create_kv_store(&jetstream, &bucket_name).await {
-        Ok(store) => store,
-        Err(e) => {
-            on_failure(format!("Failed to access KV bucket: {}", e)).await;
-            return;
-        }
+    // Get the KV store with error handling
+    let store = match get_kv_store_with_callback(&client_id, &bucket_name, &on_failure).await {
+        Some(store) => store,
+        None => return,
     };
 
-    // Put the value - convert Vec<u8> to Bytes
-    // Use bytes::Bytes directly
+    // Put the value
     let bytes_value = bytes::Bytes::from(value.into_bytes());
     match store.put(&key, bytes_value).await {
         Ok(_) => {
@@ -635,42 +618,25 @@ pub async fn kv_put(
     }
 }
 
-/// Gets a value from the key-value store using JetStream.
+/// Gets a value from the key-value store using JetStream for the specified client.
 #[flutter_rust_bridge::frb]
 pub async fn kv_get(
+    client_id: String,
     bucket_name: String,
     key: String,
     on_success: impl Fn(String) -> DartFnFuture<()>,
     on_failure: impl Fn(String) -> DartFnFuture<()>,
 ) {
-    // Get the client
-    let client_guard = NATS_CLIENT.lock().await;
-    let client = match &*client_guard {
-        Some(client) => client.clone(),
-        None => {
-            drop(client_guard);
-            on_failure("Not connected to NATS server".to_string()).await;
-            return;
-        }
-    };
-    drop(client_guard);
-
-    // Get the JetStream context
-    let jetstream = async_nats::jetstream::new(client);
-
-    // Get the KV store
-    let store = match get_or_create_kv_store(&jetstream, &bucket_name).await {
-        Ok(store) => store,
-        Err(e) => {
-            on_failure(format!("Failed to access KV bucket: {}", e)).await;
-            return;
-        }
+    // Get the KV store with error handling
+    let store = match get_kv_store_with_callback(&client_id, &bucket_name, &on_failure).await {
+        Some(store) => store,
+        None => return,
     };
 
     // Get the value
     match store.get(&key).await {
         Ok(Some(entry)) => {
-            // Convert entry to string - entry is directly a Bytes type
+            // Convert entry to string
             match String::from_utf8(entry.to_vec()) {
                 Ok(value) => {
                     on_success(value).await;
@@ -689,36 +655,19 @@ pub async fn kv_get(
     }
 }
 
-/// Deletes a key from the key-value store using JetStream.
+/// Deletes a key from the key-value store using JetStream for the specified client.
 #[flutter_rust_bridge::frb]
 pub async fn kv_delete(
+    client_id: String,
     bucket_name: String,
     key: String,
     on_success: impl Fn(bool) -> DartFnFuture<()>,
     on_failure: impl Fn(String) -> DartFnFuture<()>,
 ) {
-    // Get the client
-    let client_guard = NATS_CLIENT.lock().await;
-    let client = match &*client_guard {
-        Some(client) => client.clone(),
-        None => {
-            drop(client_guard);
-            on_failure("Not connected to NATS server".to_string()).await;
-            return;
-        }
-    };
-    drop(client_guard);
-
-    // Get the JetStream context
-    let jetstream = async_nats::jetstream::new(client);
-
-    // Get the KV store
-    let store = match get_or_create_kv_store(&jetstream, &bucket_name).await {
-        Ok(store) => store,
-        Err(e) => {
-            on_failure(format!("Failed to access KV bucket: {}", e)).await;
-            return;
-        }
+    // Get the KV store with error handling
+    let store = match get_kv_store_with_callback(&client_id, &bucket_name, &on_failure).await {
+        Some(store) => store,
+        None => return,
     };
 
     // Delete the key
@@ -732,15 +681,19 @@ pub async fn kv_delete(
     }
 }
 
-/// Helper function to get or create a KV store.
+/// Helper function to get or create a KV store for a specific client.
 async fn get_or_create_kv_store(
     jetstream: &async_nats::jetstream::Context,
+    client_id: &str,
     bucket_name: &str,
 ) -> Result<async_nats::jetstream::kv::Store, String> {
+    // Create a composite key for storing in the cache
+    let cache_key = (client_id.to_string(), bucket_name.to_string());
+
     // Check if we have this store cached
     {
         let stores = KV_STORES.read().await;
-        if let Some(store) = stores.get(bucket_name) {
+        if let Some(store) = stores.get(&cache_key) {
             return Ok(store.clone());
         }
     }
@@ -751,7 +704,7 @@ async fn get_or_create_kv_store(
             // Cache the store
             {
                 let mut stores = KV_STORES.write().await;
-                stores.insert(bucket_name.to_string(), store.clone());
+                stores.insert(cache_key, store.clone());
             }
             Ok(store)
         },
@@ -761,11 +714,9 @@ async fn get_or_create_kv_store(
                 // Create KV bucket configuration
                 let config = async_nats::jetstream::kv::Config {
                     bucket: bucket_name.to_string(),
-                    description: format!("KV Store for {}", bucket_name), // String, not Option<String>
+                    description: format!("KV Store for {} (client {})", bucket_name, client_id),
                     max_value_size: 1024 * 1024, // 1MB max value size
                     history: 5,                  // Keep 5 revisions
-                    // ttl is not available in this version
-                    // storage type is different in this version
                     ..Default::default()
                 };
 
@@ -775,7 +726,7 @@ async fn get_or_create_kv_store(
                         // Cache the store
                         {
                             let mut stores = KV_STORES.write().await;
-                            stores.insert(bucket_name.to_string(), store.clone());
+                            stores.insert(cache_key, store.clone());
                         }
                         Ok(store)
                     },

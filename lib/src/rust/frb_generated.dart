@@ -72,7 +72,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.8.0';
 
   @override
-  int get rustContentHash => -874544156;
+  int get rustContentHash => -110941864;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -84,7 +84,8 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
 
 abstract class RustLibApi extends BaseApi {
   Future<void> crateApiNatsManagerSendRequestWithCallbacks(
-      {required String subject,
+      {required String clientId,
+      required String subject,
       required String payload,
       required BigInt timeoutMs,
       required FutureOr<void> Function(String) onSuccess,
@@ -93,12 +94,14 @@ abstract class RustLibApi extends BaseApi {
   String crateApiRustConnectSync({required String natsUrl});
 
   Future<void> crateApiNatsManagerConnectToNats(
-      {required String endPoint,
+      {required String clientId,
+      required String endPoint,
       required FutureOr<void> Function(bool) onSuccess,
       required FutureOr<void> Function(String) onFailure});
 
   Future<void> crateApiNatsManagerDisconnectFromNats(
-      {required FutureOr<void> Function(bool) onSuccess,
+      {required String clientId,
+      required FutureOr<void> Function(bool) onSuccess,
       required FutureOr<void> Function(String) onFailure});
 
   String crateApiRustDisconnectSync();
@@ -118,28 +121,35 @@ abstract class RustLibApi extends BaseApi {
   Future<void> crateApiSimpleInitApp();
 
   Future<void> crateApiNatsManagerKvDelete(
-      {required String bucketName,
+      {required String clientId,
+      required String bucketName,
       required String key,
       required FutureOr<void> Function(bool) onSuccess,
       required FutureOr<void> Function(String) onFailure});
 
   Future<void> crateApiNatsManagerKvGet(
-      {required String bucketName,
+      {required String clientId,
+      required String bucketName,
       required String key,
       required FutureOr<void> Function(String) onSuccess,
       required FutureOr<void> Function(String) onFailure});
 
   Future<void> crateApiNatsManagerKvPut(
-      {required String bucketName,
+      {required String clientId,
+      required String bucketName,
       required String key,
       required String value,
       required FutureOr<void> Function(bool) onSuccess,
       required FutureOr<void> Function(String) onFailure});
 
-  Future<List<String>> crateApiNatsManagerListSubscriptions();
+  Future<List<String>> crateApiNatsManagerListClients();
+
+  Future<List<String>> crateApiNatsManagerListSubscriptions(
+      {required String clientId});
 
   Future<void> crateApiNatsManagerPublish(
-      {required String subject,
+      {required String clientId,
+      required String subject,
       required String payload,
       required FutureOr<void> Function(bool) onSuccess,
       required FutureOr<void> Function(String) onFailure});
@@ -148,7 +158,8 @@ abstract class RustLibApi extends BaseApi {
       {required FutureOr<String> Function(String) dartCallback});
 
   Future<String> crateApiNatsManagerSendRequest(
-      {required String subject,
+      {required String clientId,
+      required String subject,
       required String payload,
       required BigInt timeoutMs});
 
@@ -158,7 +169,8 @@ abstract class RustLibApi extends BaseApi {
       required String message});
 
   Future<void> crateApiNatsManagerSetupResponder(
-      {required String subject,
+      {required String clientId,
+      required String subject,
       required String responderId,
       required FutureOr<String> Function(String) processRequest,
       required FutureOr<void> Function(bool) onSuccess,
@@ -172,7 +184,8 @@ abstract class RustLibApi extends BaseApi {
   String crateApiRustStopResponderSync();
 
   Future<void> crateApiNatsManagerSubscribe(
-      {required String subject,
+      {required String clientId,
+      required String subject,
       required String subscriptionId,
       required int maxMessages,
       required FutureOr<void> Function(String, String) onMessage,
@@ -181,7 +194,8 @@ abstract class RustLibApi extends BaseApi {
       required FutureOr<void> Function() onDone});
 
   Future<void> crateApiNatsManagerUnsubscribe(
-      {required String subscriptionId,
+      {required String clientId,
+      required String subscriptionId,
       required FutureOr<void> Function(bool) onSuccess,
       required FutureOr<void> Function(String) onFailure});
 }
@@ -196,7 +210,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @override
   Future<void> crateApiNatsManagerSendRequestWithCallbacks(
-      {required String subject,
+      {required String clientId,
+      required String subject,
       required String payload,
       required BigInt timeoutMs,
       required FutureOr<void> Function(String) onSuccess,
@@ -204,6 +219,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     return handler.executeNormal(NormalTask(
       callFfi: (port_) {
         final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_String(clientId, serializer);
         sse_encode_String(subject, serializer);
         sse_encode_String(payload, serializer);
         sse_encode_u_64(timeoutMs, serializer);
@@ -219,7 +235,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         decodeErrorData: null,
       ),
       constMeta: kCrateApiNatsManagerSendRequestWithCallbacksConstMeta,
-      argValues: [subject, payload, timeoutMs, onSuccess, onFailure],
+      argValues: [clientId, subject, payload, timeoutMs, onSuccess, onFailure],
       apiImpl: this,
     ));
   }
@@ -227,7 +243,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   TaskConstMeta get kCrateApiNatsManagerSendRequestWithCallbacksConstMeta =>
       const TaskConstMeta(
         debugName: "_send_request_with_callbacks",
-        argNames: ["subject", "payload", "timeoutMs", "onSuccess", "onFailure"],
+        argNames: [
+          "clientId",
+          "subject",
+          "payload",
+          "timeoutMs",
+          "onSuccess",
+          "onFailure"
+        ],
       );
 
   @override
@@ -255,12 +278,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @override
   Future<void> crateApiNatsManagerConnectToNats(
-      {required String endPoint,
+      {required String clientId,
+      required String endPoint,
       required FutureOr<void> Function(bool) onSuccess,
       required FutureOr<void> Function(String) onFailure}) {
     return handler.executeNormal(NormalTask(
       callFfi: (port_) {
         final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_String(clientId, serializer);
         sse_encode_String(endPoint, serializer);
         sse_encode_DartFn_Inputs_bool_Output_unit_AnyhowException(
             onSuccess, serializer);
@@ -274,7 +299,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         decodeErrorData: null,
       ),
       constMeta: kCrateApiNatsManagerConnectToNatsConstMeta,
-      argValues: [endPoint, onSuccess, onFailure],
+      argValues: [clientId, endPoint, onSuccess, onFailure],
       apiImpl: this,
     ));
   }
@@ -282,16 +307,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   TaskConstMeta get kCrateApiNatsManagerConnectToNatsConstMeta =>
       const TaskConstMeta(
         debugName: "connect_to_nats",
-        argNames: ["endPoint", "onSuccess", "onFailure"],
+        argNames: ["clientId", "endPoint", "onSuccess", "onFailure"],
       );
 
   @override
   Future<void> crateApiNatsManagerDisconnectFromNats(
-      {required FutureOr<void> Function(bool) onSuccess,
+      {required String clientId,
+      required FutureOr<void> Function(bool) onSuccess,
       required FutureOr<void> Function(String) onFailure}) {
     return handler.executeNormal(NormalTask(
       callFfi: (port_) {
         final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_String(clientId, serializer);
         sse_encode_DartFn_Inputs_bool_Output_unit_AnyhowException(
             onSuccess, serializer);
         sse_encode_DartFn_Inputs_String_Output_unit_AnyhowException(
@@ -304,7 +331,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         decodeErrorData: null,
       ),
       constMeta: kCrateApiNatsManagerDisconnectFromNatsConstMeta,
-      argValues: [onSuccess, onFailure],
+      argValues: [clientId, onSuccess, onFailure],
       apiImpl: this,
     ));
   }
@@ -312,7 +339,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   TaskConstMeta get kCrateApiNatsManagerDisconnectFromNatsConstMeta =>
       const TaskConstMeta(
         debugName: "disconnect_from_nats",
-        argNames: ["onSuccess", "onFailure"],
+        argNames: ["clientId", "onSuccess", "onFailure"],
       );
 
   @override
@@ -485,13 +512,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @override
   Future<void> crateApiNatsManagerKvDelete(
-      {required String bucketName,
+      {required String clientId,
+      required String bucketName,
       required String key,
       required FutureOr<void> Function(bool) onSuccess,
       required FutureOr<void> Function(String) onFailure}) {
     return handler.executeNormal(NormalTask(
       callFfi: (port_) {
         final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_String(clientId, serializer);
         sse_encode_String(bucketName, serializer);
         sse_encode_String(key, serializer);
         sse_encode_DartFn_Inputs_bool_Output_unit_AnyhowException(
@@ -506,7 +535,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         decodeErrorData: null,
       ),
       constMeta: kCrateApiNatsManagerKvDeleteConstMeta,
-      argValues: [bucketName, key, onSuccess, onFailure],
+      argValues: [clientId, bucketName, key, onSuccess, onFailure],
       apiImpl: this,
     ));
   }
@@ -514,18 +543,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   TaskConstMeta get kCrateApiNatsManagerKvDeleteConstMeta =>
       const TaskConstMeta(
         debugName: "kv_delete",
-        argNames: ["bucketName", "key", "onSuccess", "onFailure"],
+        argNames: ["clientId", "bucketName", "key", "onSuccess", "onFailure"],
       );
 
   @override
   Future<void> crateApiNatsManagerKvGet(
-      {required String bucketName,
+      {required String clientId,
+      required String bucketName,
       required String key,
       required FutureOr<void> Function(String) onSuccess,
       required FutureOr<void> Function(String) onFailure}) {
     return handler.executeNormal(NormalTask(
       callFfi: (port_) {
         final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_String(clientId, serializer);
         sse_encode_String(bucketName, serializer);
         sse_encode_String(key, serializer);
         sse_encode_DartFn_Inputs_String_Output_unit_AnyhowException(
@@ -540,19 +571,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         decodeErrorData: null,
       ),
       constMeta: kCrateApiNatsManagerKvGetConstMeta,
-      argValues: [bucketName, key, onSuccess, onFailure],
+      argValues: [clientId, bucketName, key, onSuccess, onFailure],
       apiImpl: this,
     ));
   }
 
   TaskConstMeta get kCrateApiNatsManagerKvGetConstMeta => const TaskConstMeta(
         debugName: "kv_get",
-        argNames: ["bucketName", "key", "onSuccess", "onFailure"],
+        argNames: ["clientId", "bucketName", "key", "onSuccess", "onFailure"],
       );
 
   @override
   Future<void> crateApiNatsManagerKvPut(
-      {required String bucketName,
+      {required String clientId,
+      required String bucketName,
       required String key,
       required String value,
       required FutureOr<void> Function(bool) onSuccess,
@@ -560,6 +592,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     return handler.executeNormal(NormalTask(
       callFfi: (port_) {
         final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_String(clientId, serializer);
         sse_encode_String(bucketName, serializer);
         sse_encode_String(key, serializer);
         sse_encode_String(value, serializer);
@@ -575,18 +608,25 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         decodeErrorData: null,
       ),
       constMeta: kCrateApiNatsManagerKvPutConstMeta,
-      argValues: [bucketName, key, value, onSuccess, onFailure],
+      argValues: [clientId, bucketName, key, value, onSuccess, onFailure],
       apiImpl: this,
     ));
   }
 
   TaskConstMeta get kCrateApiNatsManagerKvPutConstMeta => const TaskConstMeta(
         debugName: "kv_put",
-        argNames: ["bucketName", "key", "value", "onSuccess", "onFailure"],
+        argNames: [
+          "clientId",
+          "bucketName",
+          "key",
+          "value",
+          "onSuccess",
+          "onFailure"
+        ],
       );
 
   @override
-  Future<List<String>> crateApiNatsManagerListSubscriptions() {
+  Future<List<String>> crateApiNatsManagerListClients() {
     return handler.executeNormal(NormalTask(
       callFfi: (port_) {
         final serializer = SseSerializer(generalizedFrbRustBinding);
@@ -597,8 +637,34 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         decodeSuccessData: sse_decode_list_String,
         decodeErrorData: null,
       ),
-      constMeta: kCrateApiNatsManagerListSubscriptionsConstMeta,
+      constMeta: kCrateApiNatsManagerListClientsConstMeta,
       argValues: [],
+      apiImpl: this,
+    ));
+  }
+
+  TaskConstMeta get kCrateApiNatsManagerListClientsConstMeta =>
+      const TaskConstMeta(
+        debugName: "list_clients",
+        argNames: [],
+      );
+
+  @override
+  Future<List<String>> crateApiNatsManagerListSubscriptions(
+      {required String clientId}) {
+    return handler.executeNormal(NormalTask(
+      callFfi: (port_) {
+        final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_String(clientId, serializer);
+        pdeCallFfi(generalizedFrbRustBinding, serializer,
+            funcId: 16, port: port_);
+      },
+      codec: SseCodec(
+        decodeSuccessData: sse_decode_list_String,
+        decodeErrorData: null,
+      ),
+      constMeta: kCrateApiNatsManagerListSubscriptionsConstMeta,
+      argValues: [clientId],
       apiImpl: this,
     ));
   }
@@ -606,18 +672,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   TaskConstMeta get kCrateApiNatsManagerListSubscriptionsConstMeta =>
       const TaskConstMeta(
         debugName: "list_subscriptions",
-        argNames: [],
+        argNames: ["clientId"],
       );
 
   @override
   Future<void> crateApiNatsManagerPublish(
-      {required String subject,
+      {required String clientId,
+      required String subject,
       required String payload,
       required FutureOr<void> Function(bool) onSuccess,
       required FutureOr<void> Function(String) onFailure}) {
     return handler.executeNormal(NormalTask(
       callFfi: (port_) {
         final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_String(clientId, serializer);
         sse_encode_String(subject, serializer);
         sse_encode_String(payload, serializer);
         sse_encode_DartFn_Inputs_bool_Output_unit_AnyhowException(
@@ -625,21 +693,21 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_DartFn_Inputs_String_Output_unit_AnyhowException(
             onFailure, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 16, port: port_);
+            funcId: 17, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
         decodeErrorData: null,
       ),
       constMeta: kCrateApiNatsManagerPublishConstMeta,
-      argValues: [subject, payload, onSuccess, onFailure],
+      argValues: [clientId, subject, payload, onSuccess, onFailure],
       apiImpl: this,
     ));
   }
 
   TaskConstMeta get kCrateApiNatsManagerPublishConstMeta => const TaskConstMeta(
         debugName: "publish",
-        argNames: ["subject", "payload", "onSuccess", "onFailure"],
+        argNames: ["clientId", "subject", "payload", "onSuccess", "onFailure"],
       );
 
   @override
@@ -651,7 +719,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_DartFn_Inputs_String_Output_String_AnyhowException(
             dartCallback, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 17, port: port_);
+            funcId: 18, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -670,24 +738,26 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @override
   Future<String> crateApiNatsManagerSendRequest(
-      {required String subject,
+      {required String clientId,
+      required String subject,
       required String payload,
       required BigInt timeoutMs}) {
     return handler.executeNormal(NormalTask(
       callFfi: (port_) {
         final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_String(clientId, serializer);
         sse_encode_String(subject, serializer);
         sse_encode_String(payload, serializer);
         sse_encode_u_64(timeoutMs, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 18, port: port_);
+            funcId: 19, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_String,
         decodeErrorData: sse_decode_String,
       ),
       constMeta: kCrateApiNatsManagerSendRequestConstMeta,
-      argValues: [subject, payload, timeoutMs],
+      argValues: [clientId, subject, payload, timeoutMs],
       apiImpl: this,
     ));
   }
@@ -695,7 +765,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   TaskConstMeta get kCrateApiNatsManagerSendRequestConstMeta =>
       const TaskConstMeta(
         debugName: "send_request",
-        argNames: ["subject", "payload", "timeoutMs"],
+        argNames: ["clientId", "subject", "payload", "timeoutMs"],
       );
 
   @override
@@ -709,7 +779,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_String(natsUrl, serializer);
         sse_encode_String(subject, serializer);
         sse_encode_String(message, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 19)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 20)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_String,
@@ -729,7 +799,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @override
   Future<void> crateApiNatsManagerSetupResponder(
-      {required String subject,
+      {required String clientId,
+      required String subject,
       required String responderId,
       required FutureOr<String> Function(String) processRequest,
       required FutureOr<void> Function(bool) onSuccess,
@@ -737,6 +808,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     return handler.executeNormal(NormalTask(
       callFfi: (port_) {
         final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_String(clientId, serializer);
         sse_encode_String(subject, serializer);
         sse_encode_String(responderId, serializer);
         sse_encode_DartFn_Inputs_String_Output_String_AnyhowException(
@@ -746,14 +818,21 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_DartFn_Inputs_String_Output_unit_AnyhowException(
             onError, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 20, port: port_);
+            funcId: 21, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
         decodeErrorData: null,
       ),
       constMeta: kCrateApiNatsManagerSetupResponderConstMeta,
-      argValues: [subject, responderId, processRequest, onSuccess, onError],
+      argValues: [
+        clientId,
+        subject,
+        responderId,
+        processRequest,
+        onSuccess,
+        onError
+      ],
       apiImpl: this,
     ));
   }
@@ -762,6 +841,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(
         debugName: "setup_responder",
         argNames: [
+          "clientId",
           "subject",
           "responderId",
           "processRequest",
@@ -781,7 +861,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_String(natsUrl, serializer);
         sse_encode_String(subject, serializer);
         sse_encode_String(replyMessage, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 21)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 22)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_String,
@@ -804,7 +884,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     return handler.executeSync(SyncTask(
       callFfi: () {
         final serializer = SseSerializer(generalizedFrbRustBinding);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 22)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 23)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_String,
@@ -824,7 +904,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @override
   Future<void> crateApiNatsManagerSubscribe(
-      {required String subject,
+      {required String clientId,
+      required String subject,
       required String subscriptionId,
       required int maxMessages,
       required FutureOr<void> Function(String, String) onMessage,
@@ -834,6 +915,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     return handler.executeNormal(NormalTask(
       callFfi: (port_) {
         final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_String(clientId, serializer);
         sse_encode_String(subject, serializer);
         sse_encode_String(subscriptionId, serializer);
         sse_encode_u_32(maxMessages, serializer);
@@ -846,7 +928,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_DartFn_Inputs__Output_unit_AnyhowException(
             onDone, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 23, port: port_);
+            funcId: 24, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -854,6 +936,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       ),
       constMeta: kCrateApiNatsManagerSubscribeConstMeta,
       argValues: [
+        clientId,
         subject,
         subscriptionId,
         maxMessages,
@@ -870,6 +953,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(
         debugName: "subscribe",
         argNames: [
+          "clientId",
           "subject",
           "subscriptionId",
           "maxMessages",
@@ -882,26 +966,28 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @override
   Future<void> crateApiNatsManagerUnsubscribe(
-      {required String subscriptionId,
+      {required String clientId,
+      required String subscriptionId,
       required FutureOr<void> Function(bool) onSuccess,
       required FutureOr<void> Function(String) onFailure}) {
     return handler.executeNormal(NormalTask(
       callFfi: (port_) {
         final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_String(clientId, serializer);
         sse_encode_String(subscriptionId, serializer);
         sse_encode_DartFn_Inputs_bool_Output_unit_AnyhowException(
             onSuccess, serializer);
         sse_encode_DartFn_Inputs_String_Output_unit_AnyhowException(
             onFailure, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 24, port: port_);
+            funcId: 25, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
         decodeErrorData: null,
       ),
       constMeta: kCrateApiNatsManagerUnsubscribeConstMeta,
-      argValues: [subscriptionId, onSuccess, onFailure],
+      argValues: [clientId, subscriptionId, onSuccess, onFailure],
       apiImpl: this,
     ));
   }
@@ -909,7 +995,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   TaskConstMeta get kCrateApiNatsManagerUnsubscribeConstMeta =>
       const TaskConstMeta(
         debugName: "unsubscribe",
-        argNames: ["subscriptionId", "onSuccess", "onFailure"],
+        argNames: ["clientId", "subscriptionId", "onSuccess", "onFailure"],
       );
 
   Future<void> Function(int, dynamic)
