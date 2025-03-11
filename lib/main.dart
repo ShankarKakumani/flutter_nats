@@ -120,7 +120,7 @@ class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
   bool _isResponderActive = false;
   String _lastRequestReceived = "No requests yet";
   String _lastRequestTime = "";
-  String _responderID = "responder-123";
+  final String _responderID = "responder-123";
 
   // Subscriber Section
   final TextEditingController _subscribeSubjectController = TextEditingController(text: "topic_publish");
@@ -128,7 +128,7 @@ class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
   bool _isSubscriberActive = false;
   String _lastPublishMsgReceived = "No messages yet";
   String _lastPublishMsgTime = "";
-  String _subscriberID = "subscriber-123";
+  final String _subscriberID = "subscriber-123";
 
   // Key-Value Section
   final TextEditingController _kvBucketController = TextEditingController(text: "my-bucket");
