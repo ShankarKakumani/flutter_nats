@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_nats/main.dart';
+import 'package:flutter_nats/src/flutter/main.dart';
 import 'package:flutter_nats/src/rust/frb_generated.dart';
 import 'package:integration_test/integration_test.dart';
 
