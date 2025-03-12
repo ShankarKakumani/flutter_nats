@@ -68,7 +68,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.8.0';
 
   @override
-  int get rustContentHash => -1074475804;
+  int get rustContentHash => -606814519;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -87,13 +87,13 @@ abstract class RustLibApi extends BaseApi {
       required FutureOr<void> Function(String) onSuccess,
       required FutureOr<void> Function(String) onFailure});
 
-  Future<void> crateApiNatsConnectToNats(
+  Future<void> crateApiNatsConnect(
       {required String clientId,
-      required String endPoint,
+      required NatsConfig config,
       required FutureOr<void> Function(bool) onSuccess,
       required FutureOr<void> Function(String) onFailure});
 
-  Future<void> crateApiNatsDisconnectFromNats(
+  Future<void> crateApiNatsDisconnect(
       {required String clientId,
       required FutureOr<void> Function(bool) onSuccess,
       required FutureOr<void> Function(String) onFailure});
@@ -219,16 +219,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  Future<void> crateApiNatsConnectToNats(
+  Future<void> crateApiNatsConnect(
       {required String clientId,
-      required String endPoint,
+      required NatsConfig config,
       required FutureOr<void> Function(bool) onSuccess,
       required FutureOr<void> Function(String) onFailure}) {
     return handler.executeNormal(NormalTask(
       callFfi: (port_) {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_String(clientId, serializer);
-        sse_encode_String(endPoint, serializer);
+        sse_encode_box_autoadd_nats_config(config, serializer);
         sse_encode_DartFn_Inputs_bool_Output_unit_AnyhowException(
             onSuccess, serializer);
         sse_encode_DartFn_Inputs_String_Output_unit_AnyhowException(
@@ -240,19 +240,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         decodeSuccessData: sse_decode_unit,
         decodeErrorData: null,
       ),
-      constMeta: kCrateApiNatsConnectToNatsConstMeta,
-      argValues: [clientId, endPoint, onSuccess, onFailure],
+      constMeta: kCrateApiNatsConnectConstMeta,
+      argValues: [clientId, config, onSuccess, onFailure],
       apiImpl: this,
     ));
   }
 
-  TaskConstMeta get kCrateApiNatsConnectToNatsConstMeta => const TaskConstMeta(
-        debugName: "connect_to_nats",
-        argNames: ["clientId", "endPoint", "onSuccess", "onFailure"],
+  TaskConstMeta get kCrateApiNatsConnectConstMeta => const TaskConstMeta(
+        debugName: "connect",
+        argNames: ["clientId", "config", "onSuccess", "onFailure"],
       );
 
   @override
-  Future<void> crateApiNatsDisconnectFromNats(
+  Future<void> crateApiNatsDisconnect(
       {required String clientId,
       required FutureOr<void> Function(bool) onSuccess,
       required FutureOr<void> Function(String) onFailure}) {
@@ -271,15 +271,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         decodeSuccessData: sse_decode_unit,
         decodeErrorData: null,
       ),
-      constMeta: kCrateApiNatsDisconnectFromNatsConstMeta,
+      constMeta: kCrateApiNatsDisconnectConstMeta,
       argValues: [clientId, onSuccess, onFailure],
       apiImpl: this,
     ));
   }
 
-  TaskConstMeta get kCrateApiNatsDisconnectFromNatsConstMeta =>
-      const TaskConstMeta(
-        debugName: "disconnect_from_nats",
+  TaskConstMeta get kCrateApiNatsDisconnectConstMeta => const TaskConstMeta(
+        debugName: "disconnect",
         argNames: ["clientId", "onSuccess", "onFailure"],
       );
 
@@ -910,6 +909,30 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  NatsConfig dco_decode_box_autoadd_nats_config(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_nats_config(raw);
+  }
+
+  @protected
+  ReconnectionConfig dco_decode_box_autoadd_reconnection_config(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_reconnection_config(raw);
+  }
+
+  @protected
+  int dco_decode_box_autoadd_u_32(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as int;
+  }
+
+  @protected
+  BigInt dco_decode_box_autoadd_u_64(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_u_64(raw);
+  }
+
+  @protected
   PlatformInt64 dco_decode_isize(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return dcoDecodeI64(raw);
@@ -925,6 +948,69 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as Uint8List;
+  }
+
+  @protected
+  NatsConfig dco_decode_nats_config(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 10)
+      throw Exception('unexpected arr length: expect 10 but see ${arr.length}');
+    return NatsConfig(
+      host: dco_decode_String(arr[0]),
+      port: dco_decode_u_16(arr[1]),
+      token: dco_decode_opt_String(arr[2]),
+      nkey: dco_decode_opt_String(arr[3]),
+      creds: dco_decode_opt_String(arr[4]),
+      user: dco_decode_opt_String(arr[5]),
+      pass: dco_decode_opt_String(arr[6]),
+      reconnection: dco_decode_opt_box_autoadd_reconnection_config(arr[7]),
+      pingInterval: dco_decode_opt_box_autoadd_u_64(arr[8]),
+      maxPingFails: dco_decode_opt_box_autoadd_u_32(arr[9]),
+    );
+  }
+
+  @protected
+  String? dco_decode_opt_String(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_String(raw);
+  }
+
+  @protected
+  ReconnectionConfig? dco_decode_opt_box_autoadd_reconnection_config(
+      dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_box_autoadd_reconnection_config(raw);
+  }
+
+  @protected
+  int? dco_decode_opt_box_autoadd_u_32(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_box_autoadd_u_32(raw);
+  }
+
+  @protected
+  BigInt? dco_decode_opt_box_autoadd_u_64(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_box_autoadd_u_64(raw);
+  }
+
+  @protected
+  ReconnectionConfig dco_decode_reconnection_config(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2)
+      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    return ReconnectionConfig(
+      maxAttempts: dco_decode_opt_box_autoadd_u_32(arr[0]),
+      delay: dco_decode_opt_box_autoadd_u_64(arr[1]),
+    );
+  }
+
+  @protected
+  int dco_decode_u_16(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as int;
   }
 
   @protected
@@ -985,6 +1071,31 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  NatsConfig sse_decode_box_autoadd_nats_config(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_nats_config(deserializer));
+  }
+
+  @protected
+  ReconnectionConfig sse_decode_box_autoadd_reconnection_config(
+      SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_reconnection_config(deserializer));
+  }
+
+  @protected
+  int sse_decode_box_autoadd_u_32(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_u_32(deserializer));
+  }
+
+  @protected
+  BigInt sse_decode_box_autoadd_u_64(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_u_64(deserializer));
+  }
+
+  @protected
   PlatformInt64 sse_decode_isize(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return deserializer.buffer.getPlatformInt64();
@@ -1007,6 +1118,93 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var len_ = sse_decode_i_32(deserializer);
     return deserializer.buffer.getUint8List(len_);
+  }
+
+  @protected
+  NatsConfig sse_decode_nats_config(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_host = sse_decode_String(deserializer);
+    var var_port = sse_decode_u_16(deserializer);
+    var var_token = sse_decode_opt_String(deserializer);
+    var var_nkey = sse_decode_opt_String(deserializer);
+    var var_creds = sse_decode_opt_String(deserializer);
+    var var_user = sse_decode_opt_String(deserializer);
+    var var_pass = sse_decode_opt_String(deserializer);
+    var var_reconnection =
+        sse_decode_opt_box_autoadd_reconnection_config(deserializer);
+    var var_pingInterval = sse_decode_opt_box_autoadd_u_64(deserializer);
+    var var_maxPingFails = sse_decode_opt_box_autoadd_u_32(deserializer);
+    return NatsConfig(
+        host: var_host,
+        port: var_port,
+        token: var_token,
+        nkey: var_nkey,
+        creds: var_creds,
+        user: var_user,
+        pass: var_pass,
+        reconnection: var_reconnection,
+        pingInterval: var_pingInterval,
+        maxPingFails: var_maxPingFails);
+  }
+
+  @protected
+  String? sse_decode_opt_String(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_String(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  ReconnectionConfig? sse_decode_opt_box_autoadd_reconnection_config(
+      SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_reconnection_config(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  int? sse_decode_opt_box_autoadd_u_32(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_u_32(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  BigInt? sse_decode_opt_box_autoadd_u_64(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_u_64(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  ReconnectionConfig sse_decode_reconnection_config(
+      SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_maxAttempts = sse_decode_opt_box_autoadd_u_32(deserializer);
+    var var_delay = sse_decode_opt_box_autoadd_u_64(deserializer);
+    return ReconnectionConfig(maxAttempts: var_maxAttempts, delay: var_delay);
+  }
+
+  @protected
+  int sse_decode_u_16(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return deserializer.buffer.getUint16();
   }
 
   @protected
@@ -1117,6 +1315,32 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_box_autoadd_nats_config(
+      NatsConfig self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_nats_config(self, serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_reconnection_config(
+      ReconnectionConfig self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_reconnection_config(self, serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_u_32(int self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_u_32(self, serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_u_64(BigInt self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_u_64(self, serializer);
+  }
+
+  @protected
   void sse_encode_isize(PlatformInt64 self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     serializer.buffer.putPlatformInt64(self);
@@ -1137,6 +1361,77 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_i_32(self.length, serializer);
     serializer.buffer.putUint8List(self);
+  }
+
+  @protected
+  void sse_encode_nats_config(NatsConfig self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.host, serializer);
+    sse_encode_u_16(self.port, serializer);
+    sse_encode_opt_String(self.token, serializer);
+    sse_encode_opt_String(self.nkey, serializer);
+    sse_encode_opt_String(self.creds, serializer);
+    sse_encode_opt_String(self.user, serializer);
+    sse_encode_opt_String(self.pass, serializer);
+    sse_encode_opt_box_autoadd_reconnection_config(
+        self.reconnection, serializer);
+    sse_encode_opt_box_autoadd_u_64(self.pingInterval, serializer);
+    sse_encode_opt_box_autoadd_u_32(self.maxPingFails, serializer);
+  }
+
+  @protected
+  void sse_encode_opt_String(String? self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_String(self, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_opt_box_autoadd_reconnection_config(
+      ReconnectionConfig? self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_reconnection_config(self, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_opt_box_autoadd_u_32(int? self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_u_32(self, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_opt_box_autoadd_u_64(BigInt? self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_u_64(self, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_reconnection_config(
+      ReconnectionConfig self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_opt_box_autoadd_u_32(self.maxAttempts, serializer);
+    sse_encode_opt_box_autoadd_u_64(self.delay, serializer);
+  }
+
+  @protected
+  void sse_encode_u_16(int self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    serializer.buffer.putUint16(self);
   }
 
   @protected

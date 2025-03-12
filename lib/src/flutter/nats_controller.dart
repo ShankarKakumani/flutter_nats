@@ -1,36 +1,36 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
-import 'package:flutter_nats/src/rust/api/nats_manager.dart' as nats_lib;
-
+import 'package:flutter_nats/src/rust/api/nats.dart' as nats_lib;
 
 /// A controller for managing NATS connections and operations
 class NatsController extends ChangeNotifier {
-  /// Creates a new NATS controller with the specified endpoint
-  NatsController({required String endPoint}) {
-    _endPoint = endPoint;
+  /// Creates a new NATS controller with the specified configuration
+  NatsController({required nats_lib.NatsConfig config}) {
+    _config = config;
   }
 
-  late String _endPoint;
+  late nats_lib.NatsConfig _config;
   final String _clientId = const Uuid().v4();
   bool _isConnected = false;
 
   /// The unique client ID for this controller
   String get clientId => _clientId;
 
-  /// The NATS server endpoint
-  String get endPoint => _endPoint;
+  /// The current NATS configuration
+  nats_lib.NatsConfig get config => _config;
+  String get endPoint => "nats://${config.host}:${config.port}";
 
   /// Whether this client is currently connected
   bool get isConnected => _isConnected;
 
-  /// Set a new endpoint (only works if not connected)
-  set endPoint(String value) {
+  /// Update the configuration (only works if not connected)
+  set config(nats_lib.NatsConfig value) {
     if (!_isConnected) {
-      _endPoint = value;
+      _config = value;
       notifyListeners();
     } else {
-      debugPrint('Cannot change endpoint while connected');
+      debugPrint('Cannot change configuration while connected');
     }
   }
 
@@ -41,9 +41,9 @@ class NatsController extends ChangeNotifier {
     ValueChanged<bool>? onSuccess,
     ValueChanged<String>? onFailure,
   }) {
-    nats_lib.connectToNats(
+    nats_lib.connect(
       clientId: _clientId,
-      endPoint: _endPoint,
+      config: _config,
       onSuccess: (value) {
         _isConnected = true;
         notifyListeners();
@@ -64,7 +64,7 @@ class NatsController extends ChangeNotifier {
     ValueChanged<bool>? onSuccess,
     ValueChanged<String>? onFailure,
   }) {
-    nats_lib.disconnectFromNats(
+    nats_lib.disconnect(
       clientId: _clientId,
       onSuccess: (value) {
         _isConnected = false;

@@ -37,7 +37,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.8.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1074475804;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -606814519;
 
 // Section: executor
 
@@ -100,7 +100,7 @@ fn wire__crate__api__nats___send_request_with_callbacks_impl(
         },
     )
 }
-fn wire__crate__api__nats__connect_to_nats_impl(
+fn wire__crate__api__nats__connect_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
@@ -108,7 +108,7 @@ fn wire__crate__api__nats__connect_to_nats_impl(
 ) {
     FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
         flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "connect_to_nats",
+            debug_name: "connect",
             port: Some(port_),
             mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
         },
@@ -123,7 +123,7 @@ fn wire__crate__api__nats__connect_to_nats_impl(
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
             let api_client_id = <String>::sse_decode(&mut deserializer);
-            let api_end_point = <String>::sse_decode(&mut deserializer);
+            let api_config = <crate::api::nats::NatsConfig>::sse_decode(&mut deserializer);
             let api_on_success = decode_DartFn_Inputs_bool_Output_unit_AnyhowException(
                 <flutter_rust_bridge::DartOpaque>::sse_decode(&mut deserializer),
             );
@@ -135,9 +135,9 @@ fn wire__crate__api__nats__connect_to_nats_impl(
                 transform_result_sse::<_, ()>(
                     (move || async move {
                         let output_ok = Result::<_, ()>::Ok({
-                            crate::api::nats::connect_to_nats(
+                            crate::api::nats::connect(
                                 api_client_id,
-                                api_end_point,
+                                api_config,
                                 api_on_success,
                                 api_on_failure,
                             )
@@ -151,7 +151,7 @@ fn wire__crate__api__nats__connect_to_nats_impl(
         },
     )
 }
-fn wire__crate__api__nats__disconnect_from_nats_impl(
+fn wire__crate__api__nats__disconnect_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
@@ -159,7 +159,7 @@ fn wire__crate__api__nats__disconnect_from_nats_impl(
 ) {
     FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
         flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "disconnect_from_nats",
+            debug_name: "disconnect",
             port: Some(port_),
             mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
         },
@@ -185,7 +185,7 @@ fn wire__crate__api__nats__disconnect_from_nats_impl(
                 transform_result_sse::<_, ()>(
                     (move || async move {
                         let output_ok = Result::<_, ()>::Ok({
-                            crate::api::nats::disconnect_from_nats(
+                            crate::api::nats::disconnect(
                                 api_client_id,
                                 api_on_success,
                                 api_on_failure,
@@ -967,6 +967,100 @@ impl SseDecode for Vec<u8> {
     }
 }
 
+impl SseDecode for crate::api::nats::NatsConfig {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_host = <String>::sse_decode(deserializer);
+        let mut var_port = <u16>::sse_decode(deserializer);
+        let mut var_token = <Option<String>>::sse_decode(deserializer);
+        let mut var_nkey = <Option<String>>::sse_decode(deserializer);
+        let mut var_creds = <Option<String>>::sse_decode(deserializer);
+        let mut var_user = <Option<String>>::sse_decode(deserializer);
+        let mut var_pass = <Option<String>>::sse_decode(deserializer);
+        let mut var_reconnection =
+            <Option<crate::api::nats::ReconnectionConfig>>::sse_decode(deserializer);
+        let mut var_pingInterval = <Option<u64>>::sse_decode(deserializer);
+        let mut var_maxPingFails = <Option<u32>>::sse_decode(deserializer);
+        return crate::api::nats::NatsConfig {
+            host: var_host,
+            port: var_port,
+            token: var_token,
+            nkey: var_nkey,
+            creds: var_creds,
+            user: var_user,
+            pass: var_pass,
+            reconnection: var_reconnection,
+            ping_interval: var_pingInterval,
+            max_ping_fails: var_maxPingFails,
+        };
+    }
+}
+
+impl SseDecode for Option<String> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<String>::sse_decode(deserializer));
+        } else {
+            return None;
+        }
+    }
+}
+
+impl SseDecode for Option<crate::api::nats::ReconnectionConfig> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<crate::api::nats::ReconnectionConfig>::sse_decode(
+                deserializer,
+            ));
+        } else {
+            return None;
+        }
+    }
+}
+
+impl SseDecode for Option<u32> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<u32>::sse_decode(deserializer));
+        } else {
+            return None;
+        }
+    }
+}
+
+impl SseDecode for Option<u64> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<u64>::sse_decode(deserializer));
+        } else {
+            return None;
+        }
+    }
+}
+
+impl SseDecode for crate::api::nats::ReconnectionConfig {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_maxAttempts = <Option<u32>>::sse_decode(deserializer);
+        let mut var_delay = <Option<u64>>::sse_decode(deserializer);
+        return crate::api::nats::ReconnectionConfig {
+            max_attempts: var_maxAttempts,
+            delay: var_delay,
+        };
+    }
+}
+
+impl SseDecode for u16 {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        deserializer.cursor.read_u16::<NativeEndian>().unwrap()
+    }
+}
+
 impl SseDecode for u32 {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -1022,8 +1116,8 @@ fn pde_ffi_dispatcher_primary_impl(
             rust_vec_len,
             data_len,
         ),
-        2 => wire__crate__api__nats__connect_to_nats_impl(port, ptr, rust_vec_len, data_len),
-        3 => wire__crate__api__nats__disconnect_from_nats_impl(port, ptr, rust_vec_len, data_len),
+        2 => wire__crate__api__nats__connect_impl(port, ptr, rust_vec_len, data_len),
+        3 => wire__crate__api__nats__disconnect_impl(port, ptr, rust_vec_len, data_len),
         4 => wire__crate__api__nats__init_app_impl(port, ptr, rust_vec_len, data_len),
         5 => wire__crate__api__nats__kv_delete_impl(port, ptr, rust_vec_len, data_len),
         6 => wire__crate__api__nats__kv_get_impl(port, ptr, rust_vec_len, data_len),
@@ -1052,6 +1146,54 @@ fn pde_ffi_dispatcher_sync_impl(
 }
 
 // Section: rust2dart
+
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::nats::NatsConfig {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.host.into_into_dart().into_dart(),
+            self.port.into_into_dart().into_dart(),
+            self.token.into_into_dart().into_dart(),
+            self.nkey.into_into_dart().into_dart(),
+            self.creds.into_into_dart().into_dart(),
+            self.user.into_into_dart().into_dart(),
+            self.pass.into_into_dart().into_dart(),
+            self.reconnection.into_into_dart().into_dart(),
+            self.ping_interval.into_into_dart().into_dart(),
+            self.max_ping_fails.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::api::nats::NatsConfig {}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::nats::NatsConfig>
+    for crate::api::nats::NatsConfig
+{
+    fn into_into_dart(self) -> crate::api::nats::NatsConfig {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::nats::ReconnectionConfig {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.max_attempts.into_into_dart().into_dart(),
+            self.delay.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::nats::ReconnectionConfig
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::nats::ReconnectionConfig>
+    for crate::api::nats::ReconnectionConfig
+{
+    fn into_into_dart(self) -> crate::api::nats::ReconnectionConfig {
+        self
+    }
+}
 
 impl SseEncode for flutter_rust_bridge::for_generated::anyhow::Error {
     // Codec=Sse (Serialization based), see doc to use other codecs
@@ -1108,6 +1250,77 @@ impl SseEncode for Vec<u8> {
         for item in self {
             <u8>::sse_encode(item, serializer);
         }
+    }
+}
+
+impl SseEncode for crate::api::nats::NatsConfig {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.host, serializer);
+        <u16>::sse_encode(self.port, serializer);
+        <Option<String>>::sse_encode(self.token, serializer);
+        <Option<String>>::sse_encode(self.nkey, serializer);
+        <Option<String>>::sse_encode(self.creds, serializer);
+        <Option<String>>::sse_encode(self.user, serializer);
+        <Option<String>>::sse_encode(self.pass, serializer);
+        <Option<crate::api::nats::ReconnectionConfig>>::sse_encode(self.reconnection, serializer);
+        <Option<u64>>::sse_encode(self.ping_interval, serializer);
+        <Option<u32>>::sse_encode(self.max_ping_fails, serializer);
+    }
+}
+
+impl SseEncode for Option<String> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <String>::sse_encode(value, serializer);
+        }
+    }
+}
+
+impl SseEncode for Option<crate::api::nats::ReconnectionConfig> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <crate::api::nats::ReconnectionConfig>::sse_encode(value, serializer);
+        }
+    }
+}
+
+impl SseEncode for Option<u32> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <u32>::sse_encode(value, serializer);
+        }
+    }
+}
+
+impl SseEncode for Option<u64> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <u64>::sse_encode(value, serializer);
+        }
+    }
+}
+
+impl SseEncode for crate::api::nats::ReconnectionConfig {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <Option<u32>>::sse_encode(self.max_attempts, serializer);
+        <Option<u64>>::sse_encode(self.delay, serializer);
+    }
+}
+
+impl SseEncode for u16 {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        serializer.cursor.write_u16::<NativeEndian>(self).unwrap();
     }
 }
 

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_nats/src/rust/api/nats.dart';
 import 'package:intl/intl.dart';
 
 import 'nats_controller.dart';
@@ -98,7 +100,9 @@ class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
   bool _isLoading = false;
 
   // Connection Section
-  final TextEditingController _endpointController = TextEditingController(text: "nats://127.0.0.1:4222");
+  final TextEditingController _hostController = TextEditingController(text: "127.0.0.1");
+  final TextEditingController _portController = TextEditingController(text: "4222");
+
   String _connectionStatus = "Not connected";
   bool _isConnected = false;
 
@@ -140,7 +144,12 @@ class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
   @override
   void initState() {
     super.initState();
-    _natsController = NatsController(endPoint: _endpointController.text);
+    _natsController = NatsController(
+      config: NatsConfig(
+        host: _hostController.text,
+        port: int.tryParse(_portController.text) ?? 4222,
+      ),
+    );
   }
 
   String _formatTimestamp() {
@@ -215,11 +224,7 @@ class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
                 const SizedBox(width: 12),
                 Text(
                   "Connection",
-                  style: Theme
-                      .of(context)
-                      .textTheme
-                      .titleLarge
-                      ?.copyWith(
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     fontSize: 20,
                     color: const Color(0xFF2C3E50),
                   ),
@@ -227,17 +232,44 @@ class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
               ],
             ),
             const Divider(height: 30),
-            TextField(
-              controller: _endpointController,
-              style: const TextStyle(fontSize: 16),
-              decoration: const InputDecoration(
-                labelText: "NATS Server Endpoint",
-                labelStyle: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
+            // Replace single endpoint text field with separate host and port fields
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: TextField(
+                    controller: _hostController,
+                    style: const TextStyle(fontSize: 16),
+                    decoration: const InputDecoration(
+                      labelText: "Host",
+                      labelStyle: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      hintText: "127.0.0.1",
+                    ),
+                  ),
                 ),
-                hintText: "nats://127.0.0.1:4222",
-              ),
+                const SizedBox(width: 16),
+                Expanded(
+                  flex: 1,
+                  child: TextField(
+                    controller: _portController,
+                    style: const TextStyle(fontSize: 16),
+                    decoration: const InputDecoration(
+                      labelText: "Port",
+                      labelStyle: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      hintText: "4222",
+                    ),
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 20),
             Row(
@@ -298,7 +330,6 @@ class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
       ),
     );
   }
-
   Widget _buildRequestSection() {
     return Card(
       child: Padding(
@@ -312,14 +343,10 @@ class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
                 const SizedBox(width: 12),
                 Text(
                   "Request",
-                  style: Theme
-                      .of(context)
-                      .textTheme
-                      .titleLarge
-                      ?.copyWith(
-                    fontSize: 20,
-                    color: const Color(0xFF2C3E50),
-                  ),
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontSize: 20,
+                        color: const Color(0xFF2C3E50),
+                      ),
                 ),
               ],
             ),
@@ -417,14 +444,10 @@ class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
                 const SizedBox(width: 12),
                 Text(
                   "Responder",
-                  style: Theme
-                      .of(context)
-                      .textTheme
-                      .titleLarge
-                      ?.copyWith(
-                    fontSize: 20,
-                    color: const Color(0xFF2C3E50),
-                  ),
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontSize: 20,
+                        color: const Color(0xFF2C3E50),
+                      ),
                 ),
               ],
             ),
@@ -570,14 +593,10 @@ class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
                 const SizedBox(width: 12),
                 Text(
                   "Publish",
-                  style: Theme
-                      .of(context)
-                      .textTheme
-                      .titleLarge
-                      ?.copyWith(
-                    fontSize: 20,
-                    color: const Color(0xFF2C3E50),
-                  ),
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontSize: 20,
+                        color: const Color(0xFF2C3E50),
+                      ),
                 ),
               ],
             ),
@@ -653,14 +672,10 @@ class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
                 const SizedBox(width: 12),
                 Text(
                   "Subscribe",
-                  style: Theme
-                      .of(context)
-                      .textTheme
-                      .titleLarge
-                      ?.copyWith(
-                    fontSize: 20,
-                    color: const Color(0xFF2C3E50),
-                  ),
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontSize: 20,
+                        color: const Color(0xFF2C3E50),
+                      ),
                 ),
               ],
             ),
@@ -793,14 +808,10 @@ class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
                 const SizedBox(width: 12),
                 Text(
                   "Key-Value Store",
-                  style: Theme
-                      .of(context)
-                      .textTheme
-                      .titleLarge
-                      ?.copyWith(
-                    fontSize: 20,
-                    color: const Color(0xFF2C3E50),
-                  ),
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontSize: 20,
+                        color: const Color(0xFF2C3E50),
+                      ),
                 ),
               ],
             ),
@@ -929,9 +940,19 @@ class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
 
   void _connect() {
     _setLoading(true);
-    // Update the controller's endpoint if it changed
-    if (_natsController.endPoint != _endpointController.text) {
-      _natsController = NatsController(endPoint: _endpointController.text);
+
+    final host = _hostController.text;
+    final port = int.tryParse(_portController.text) ?? 4222;
+
+    // Create a new NatsConfig
+    final config = NatsConfig(
+      host: host,
+      port: port,
+    );
+
+    // Update the controller if config changed
+    if (_natsController.config.host != config.host || _natsController.config.port != config.port) {
+      _natsController = NatsController(config: config);
     }
 
     _natsController.connect(
@@ -950,7 +971,6 @@ class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
         });
       },
     );
-
   }
 
   void _disconnect() {
@@ -1187,7 +1207,8 @@ class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
 
   @override
   void dispose() {
-    _endpointController.dispose();
+    _hostController.dispose();
+    _portController.dispose();
     _requestSubjectController.dispose();
     _requestMessageController.dispose();
     _publishSubjectController.dispose();

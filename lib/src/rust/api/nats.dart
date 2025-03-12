@@ -7,25 +7,26 @@ import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
 // These functions are ignored because they are not marked as `pub`: `cleanup_client_subscriptions`, `cleanup_subscription`, `get_client`, `get_jetstream`, `get_kv_store_with_callback`, `get_next_message`, `get_or_create_kv_store`, `is_subscription_active`, `process_responder_requests`, `process_subscription_messages`, `subscription_exists`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `fmt`, `fmt`
 
 /// Connects to a NATS server with the specified client ID and calls appropriate callback based on result.
-Future<void> connectToNats(
+Future<void> connect(
         {required String clientId,
-        required String endPoint,
+        required NatsConfig config,
         required FutureOr<void> Function(bool) onSuccess,
         required FutureOr<void> Function(String) onFailure}) =>
-    RustLib.instance.api.crateApiNatsConnectToNats(
+    RustLib.instance.api.crateApiNatsConnect(
         clientId: clientId,
-        endPoint: endPoint,
+        config: config,
         onSuccess: onSuccess,
         onFailure: onFailure);
 
 /// Disconnects a specific client from the NATS server.
-Future<void> disconnectFromNats(
+Future<void> disconnect(
         {required String clientId,
         required FutureOr<void> Function(bool) onSuccess,
         required FutureOr<void> Function(String) onFailure}) =>
-    RustLib.instance.api.crateApiNatsDisconnectFromNats(
+    RustLib.instance.api.crateApiNatsDisconnect(
         clientId: clientId, onSuccess: onSuccess, onFailure: onFailure);
 
 /// Sends a request to NATS server using the specified client and returns the response.
@@ -169,3 +170,79 @@ Future<void> kvDelete(
         key: key,
         onSuccess: onSuccess,
         onFailure: onFailure);
+
+class NatsConfig {
+  final String host;
+  final int port;
+  final String? token;
+  final String? nkey;
+  final String? creds;
+  final String? user;
+  final String? pass;
+  final ReconnectionConfig? reconnection;
+  final BigInt? pingInterval;
+  final int? maxPingFails;
+
+  const NatsConfig({
+    required this.host,
+    required this.port,
+    this.token,
+    this.nkey,
+    this.creds,
+    this.user,
+    this.pass,
+    this.reconnection,
+    this.pingInterval,
+    this.maxPingFails,
+  });
+
+  @override
+  int get hashCode =>
+      host.hashCode ^
+      port.hashCode ^
+      token.hashCode ^
+      nkey.hashCode ^
+      creds.hashCode ^
+      user.hashCode ^
+      pass.hashCode ^
+      reconnection.hashCode ^
+      pingInterval.hashCode ^
+      maxPingFails.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is NatsConfig &&
+          runtimeType == other.runtimeType &&
+          host == other.host &&
+          port == other.port &&
+          token == other.token &&
+          nkey == other.nkey &&
+          creds == other.creds &&
+          user == other.user &&
+          pass == other.pass &&
+          reconnection == other.reconnection &&
+          pingInterval == other.pingInterval &&
+          maxPingFails == other.maxPingFails;
+}
+
+class ReconnectionConfig {
+  final int? maxAttempts;
+  final BigInt? delay;
+
+  const ReconnectionConfig({
+    this.maxAttempts,
+    this.delay,
+  });
+
+  @override
+  int get hashCode => maxAttempts.hashCode ^ delay.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ReconnectionConfig &&
+          runtimeType == other.runtimeType &&
+          maxAttempts == other.maxAttempts &&
+          delay == other.delay;
+}

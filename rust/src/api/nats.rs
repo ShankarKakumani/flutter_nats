@@ -32,6 +32,29 @@ static SUBSCRIPTION_ACTIVE: Lazy<Arc<RwLock<HashMap<(ClientId, SubscriptionId), 
     Arc::new(RwLock::new(HashMap::new()))
 });
 
+
+#[flutter_rust_bridge::frb(unignore)]
+#[derive(Clone, Debug)]
+pub struct NatsConfig {
+    pub host: String,
+    pub port: u16,
+    pub token: Option<String>,
+    pub nkey: Option<String>,
+    pub creds: Option<String>,
+    pub user: Option<String>,
+    pub pass: Option<String>,
+    pub reconnection: Option<ReconnectionConfig>,
+    pub ping_interval: Option<u64>,
+    pub max_ping_fails: Option<u32>,
+}
+
+#[flutter_rust_bridge::frb(unignore)]
+#[derive(Clone, Debug)]
+pub struct ReconnectionConfig {
+    pub max_attempts: Option<u32>,
+    pub delay: Option<u64>,
+}
+
 /// Initializes flutter_rust_bridge's default utilities.
 #[flutter_rust_bridge::frb(init)]
 pub fn init_app() {
@@ -48,9 +71,9 @@ async fn get_client(client_id: &str) -> Result<Client, String> {
 
 /// Connects to a NATS server with the specified client ID and calls appropriate callback based on result.
 #[flutter_rust_bridge::frb]
-pub async fn connect_to_nats(
+pub async fn connect(
     client_id: String,
-    end_point: String,
+    config: NatsConfig,
     on_success: impl Fn(bool) -> DartFnFuture<()>,
     on_failure: impl Fn(String) -> DartFnFuture<()>,
 ) {
@@ -64,7 +87,10 @@ pub async fn connect_to_nats(
         }
     }
 
-    // Connect to the NATS server
+    // Build the endpoint from config
+    let end_point = format!("nats://{}:{}", config.host, config.port);
+
+    // Connect to the NATS server (using the simple connect method)
     match async_nats::connect(end_point).await {
         Ok(client) => {
             // Store the new client
@@ -121,7 +147,7 @@ async fn cleanup_client_subscriptions(client_id: &str) {
 
 /// Disconnects a specific client from the NATS server.
 #[flutter_rust_bridge::frb]
-pub async fn disconnect_from_nats(
+pub async fn disconnect(
     client_id: String,
     on_success: impl Fn(bool) -> DartFnFuture<()>,
     on_failure: impl Fn(String) -> DartFnFuture<()>,
