@@ -1,92 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_nats/src/rust/api/nats.dart';
+import 'package:flutter_nats/flutter_nats.dart';
 import 'package:intl/intl.dart';
-
-import 'nats_controller.dart';
-import '../rust/frb_generated.dart';
-
-Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await RustLib.init();
-  runApp(const MyApp());
-}
-
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: "NATS Playground",
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF2C3E50),
-          brightness: Brightness.light,
-        ),
-        fontFamily: 'Roboto',
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            foregroundColor: Colors.white,
-            backgroundColor: const Color(0xFF2C3E50),
-            elevation: 2,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            textStyle: const TextStyle(
-              fontWeight: FontWeight.w500,
-              letterSpacing: 0.5,
-            ),
-          ),
-        ),
-        cardTheme: CardTheme(
-          elevation: 2,
-          margin: const EdgeInsets.symmetric(vertical: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-        inputDecorationTheme: InputDecorationTheme(
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(color: Colors.grey.shade300),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(color: Colors.grey.shade300),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: Color(0xFF2C3E50), width: 2),
-          ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-          filled: true,
-          fillColor: Colors.white,
-        ),
-        textTheme: const TextTheme(
-          headlineMedium: TextStyle(
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.5,
-          ),
-          titleLarge: TextStyle(
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.3,
-          ),
-          titleMedium: TextStyle(
-            fontWeight: FontWeight.w500,
-            letterSpacing: 0.2,
-          ),
-          bodyLarge: TextStyle(
-            letterSpacing: 0.2,
-          ),
-          bodyMedium: TextStyle(
-            letterSpacing: 0.1,
-          ),
-        ),
-      ),
-      home: const NatsPlaygroundPage(),
-    );
-  }
-}
 
 class NatsPlaygroundPage extends StatefulWidget {
   const NatsPlaygroundPage({super.key});
@@ -225,9 +140,9 @@ class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
                 Text(
                   "Connection",
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontSize: 20,
-                    color: const Color(0xFF2C3E50),
-                  ),
+                        fontSize: 20,
+                        color: const Color(0xFF2C3E50),
+                      ),
                 ),
               ],
             ),
@@ -330,6 +245,7 @@ class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
       ),
     );
   }
+
   Widget _buildRequestSection() {
     return Card(
       child: Padding(
@@ -937,7 +853,6 @@ class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
   }
 
   // CONNECTION FUNCTIONS
-
   void _connect() {
     _setLoading(true);
 
@@ -997,7 +912,6 @@ class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
   }
 
   // PUBLISH FUNCTIONS
-
   void _publish() {
     _natsController.publish(
       subject: _publishSubjectController.text,
@@ -1016,7 +930,6 @@ class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
   }
 
   // REQUEST FUNCTIONS
-
   void _sendRequest() {
     _setLoading(true);
     _natsController.sendRequestWithCallbacks(
@@ -1041,7 +954,6 @@ class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
   }
 
   // RESPONDER FUNCTIONS
-
   void _startResponder() {
     _natsController.setupResponder(
       subject: _responderSubjectController.text,
@@ -1085,7 +997,6 @@ class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
   }
 
   // SUBSCRIBER FUNCTIONS
-
   void _startSubscriber() {
     _natsController.subscribe(
       subject: _subscribeSubjectController.text,
@@ -1136,7 +1047,6 @@ class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
   }
 
   // KEY-VALUE FUNCTIONS
-
   void _putValue() {
     _setLoading(true);
     _natsController.kvPut(
