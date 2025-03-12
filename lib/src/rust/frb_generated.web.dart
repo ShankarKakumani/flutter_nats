@@ -6,9 +6,7 @@
 // Static analysis wrongly picks the IO variant, thus ignore this
 // ignore_for_file: argument_type_not_assignable
 
-import 'api/nats_manager.dart';
-import 'api/rust.dart';
-import 'api/simple.dart';
+import 'api/nats.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'frb_generated.dart';
@@ -29,10 +27,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   FutureOr<String> Function(String)
       dco_decode_DartFn_Inputs_String_Output_String_AnyhowException(
           dynamic raw);
-
-  @protected
-  FutureOr<bool> Function(String)
-      dco_decode_DartFn_Inputs_String_Output_bool_AnyhowException(dynamic raw);
 
   @protected
   FutureOr<void> Function(String)
@@ -130,10 +124,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_DartFn_Inputs_String_Output_String_AnyhowException(
       FutureOr<String> Function(String) self, SseSerializer serializer);
-
-  @protected
-  void sse_encode_DartFn_Inputs_String_Output_bool_AnyhowException(
-      FutureOr<bool> Function(String) self, SseSerializer serializer);
 
   @protected
   void sse_encode_DartFn_Inputs_String_Output_unit_AnyhowException(

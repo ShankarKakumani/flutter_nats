@@ -3,9 +3,7 @@
 
 // ignore_for_file: unused_import, unused_element, unnecessary_import, duplicate_ignore, invalid_use_of_internal_member, annotate_overrides, non_constant_identifier_names, curly_braces_in_flow_control_structures, prefer_const_literals_to_create_immutables, unused_field
 
-import 'api/nats_manager.dart';
-import 'api/rust.dart';
-import 'api/simple.dart';
+import 'api/nats.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:ffi' as ffi;
@@ -27,10 +25,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   FutureOr<String> Function(String)
       dco_decode_DartFn_Inputs_String_Output_String_AnyhowException(
           dynamic raw);
-
-  @protected
-  FutureOr<bool> Function(String)
-      dco_decode_DartFn_Inputs_String_Output_bool_AnyhowException(dynamic raw);
 
   @protected
   FutureOr<void> Function(String)
@@ -128,10 +122,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_DartFn_Inputs_String_Output_String_AnyhowException(
       FutureOr<String> Function(String) self, SseSerializer serializer);
-
-  @protected
-  void sse_encode_DartFn_Inputs_String_Output_bool_AnyhowException(
-      FutureOr<bool> Function(String) self, SseSerializer serializer);
 
   @protected
   void sse_encode_DartFn_Inputs_String_Output_unit_AnyhowException(
