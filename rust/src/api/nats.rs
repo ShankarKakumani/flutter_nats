@@ -1,11 +1,11 @@
+use anyhow::Result;
 use async_nats::{self, Client};
 use flutter_rust_bridge::DartFnFuture;
-use std::time::Duration;
-use anyhow::Result;
-use std::sync::Arc;
 use once_cell::sync::Lazy;
-use tokio::sync::RwLock;
 use std::collections::HashMap;
+use std::sync::Arc;
+use std::time::Duration;
+use tokio::sync::RwLock;
 use tokio_stream::StreamExt;
 
 /// Multiple clients support for NATS
@@ -13,25 +13,21 @@ type ClientId = String;
 type SubscriptionId = String;
 
 // A thread-safe map of client IDs to NATS clients
-static NATS_CLIENTS: Lazy<Arc<RwLock<HashMap<ClientId, Client>>>> = Lazy::new(|| {
-    Arc::new(RwLock::new(HashMap::new()))
-});
+static NATS_CLIENTS: Lazy<Arc<RwLock<HashMap<ClientId, Client>>>> =
+    Lazy::new(|| Arc::new(RwLock::new(HashMap::new())));
 
 // Store JetStream Key-Value contexts per client
-static KV_STORES: Lazy<Arc<RwLock<HashMap<(ClientId, String), async_nats::jetstream::kv::Store>>>> = Lazy::new(|| {
-    Arc::new(RwLock::new(HashMap::new()))
-});
+static KV_STORES: Lazy<Arc<RwLock<HashMap<(ClientId, String), async_nats::jetstream::kv::Store>>>> =
+    Lazy::new(|| Arc::new(RwLock::new(HashMap::new())));
 
 // Store active subscriptions per client
-static SUBSCRIPTIONS: Lazy<Arc<RwLock<HashMap<(ClientId, SubscriptionId), async_nats::Subscriber>>>> = Lazy::new(|| {
-    Arc::new(RwLock::new(HashMap::new()))
-});
+static SUBSCRIPTIONS: Lazy<
+    Arc<RwLock<HashMap<(ClientId, SubscriptionId), async_nats::Subscriber>>>,
+> = Lazy::new(|| Arc::new(RwLock::new(HashMap::new())));
 
 // Store a flag for each subscription indicating if it should continue
-static SUBSCRIPTION_ACTIVE: Lazy<Arc<RwLock<HashMap<(ClientId, SubscriptionId), bool>>>> = Lazy::new(|| {
-    Arc::new(RwLock::new(HashMap::new()))
-});
-
+static SUBSCRIPTION_ACTIVE: Lazy<Arc<RwLock<HashMap<(ClientId, SubscriptionId), bool>>>> =
+    Lazy::new(|| Arc::new(RwLock::new(HashMap::new())));
 
 #[flutter_rust_bridge::frb(unignore)]
 #[derive(Clone, Debug)]
@@ -64,7 +60,8 @@ pub fn init_app() {
 /// Helper function to get a client by ID with proper error handling
 async fn get_client(client_id: &str) -> Result<Client, String> {
     let clients = NATS_CLIENTS.read().await;
-    clients.get(client_id)
+    clients
+        .get(client_id)
         .cloned()
         .ok_or_else(|| format!("Client with ID '{}' not found", client_id))
 }
@@ -111,7 +108,8 @@ async fn cleanup_client_subscriptions(client_id: &str) {
     // First, mark all subscriptions for this client as inactive
     {
         let mut active_map = SUBSCRIPTION_ACTIVE.write().await;
-        let client_subs: Vec<(ClientId, SubscriptionId)> = active_map.keys()
+        let client_subs: Vec<(ClientId, SubscriptionId)> = active_map
+            .keys()
             .filter(|(cid, _)| cid == client_id)
             .cloned()
             .collect();
@@ -184,10 +182,7 @@ pub async fn send_request(
     let timeout = Duration::from_millis(timeout_ms);
 
     // Send request with timeout
-    let response = tokio::time::timeout(
-        timeout,
-        client.request(subject, payload_bytes.into()),
-    )
+    let response = tokio::time::timeout(timeout, client.request(subject, payload_bytes.into()))
         .await
         .map_err(|_| "Request timed out".to_string())?
         .map_err(|e| e.to_string())?;
@@ -237,12 +232,12 @@ pub async fn publish(
             match client.publish(subject, payload_bytes.into()).await {
                 Ok(_) => {
                     on_success(true).await;
-                },
+                }
                 Err(e) => {
                     on_failure(e.to_string()).await;
                 }
             }
-        },
+        }
         Err(e) => {
             on_failure(e).await;
         }
@@ -276,7 +271,11 @@ pub async fn setup_responder(
         let subs = SUBSCRIPTIONS.read().await;
         if subs.contains_key(&sub_key) {
             drop(subs);
-            on_error(format!("Responder '{}' for client '{}' already exists", responder_id, client_id)).await;
+            on_error(format!(
+                "Responder '{}' for client '{}' already exists",
+                responder_id, client_id
+            ))
+            .await;
             return;
         }
     }
@@ -300,14 +299,9 @@ pub async fn setup_responder(
             // Spawn a task to handle this responder
             let sub_key_clone = sub_key.clone();
             tokio::spawn(async move {
-                process_responder_requests(
-                    client,
-                    sub_key_clone,
-                    process_request,
-                    on_error,
-                ).await;
+                process_responder_requests(client, sub_key_clone, process_request, on_error).await;
             });
-        },
+        }
         Err(e) => {
             on_error(format!("Failed to subscribe: {}", e)).await;
         }
@@ -319,10 +313,9 @@ async fn get_next_message(sub_key: &(ClientId, SubscriptionId)) -> Option<async_
     let mut subs = SUBSCRIPTIONS.write().await;
     if let Some(sub) = subs.get_mut(sub_key) {
         // Try to get the next message with a small timeout
-        tokio::time::timeout(
-            Duration::from_millis(100),
-            sub.next()
-        ).await.unwrap_or_else(|_| None)
+        tokio::time::timeout(Duration::from_millis(100), sub.next())
+            .await
+            .unwrap_or_else(|_| None)
     } else {
         None // Subscription doesn't exist anymore
     }
@@ -367,12 +360,12 @@ async fn process_responder_requests(
 
                         // Send response back
                         match client.publish(reply_to, response.into_bytes().into()).await {
-                            Ok(_) => {}, // Response sent successfully
+                            Ok(_) => {} // Response sent successfully
                             Err(e) => {
                                 on_error(format!("Failed to send response: {}", e)).await;
                             }
                         }
-                    },
+                    }
                     Err(e) => {
                         on_error(format!("Invalid UTF-8 in request: {}", e)).await;
                     }
@@ -434,7 +427,11 @@ pub async fn subscribe(
         let subs = SUBSCRIPTIONS.read().await;
         if subs.contains_key(&sub_key) {
             drop(subs);
-            on_error(format!("Subscription '{}' for client '{}' already exists", subscription_id, client_id)).await;
+            on_error(format!(
+                "Subscription '{}' for client '{}' already exists",
+                subscription_id, client_id
+            ))
+            .await;
             return;
         }
     }
@@ -467,9 +464,10 @@ pub async fn subscribe(
                     on_message,
                     on_error,
                     on_done,
-                ).await;
+                )
+                .await;
             });
-        },
+        }
         Err(e) => {
             on_error(format!("Failed to subscribe: {}", e)).await;
         }
@@ -510,12 +508,12 @@ async fn process_subscription_messages(
                     Ok(payload) => {
                         on_message(subject.clone(), payload).await;
                         message_count += 1;
-                    },
+                    }
                     Err(e) => {
                         on_error(format!("Invalid UTF-8 in message: {}", e)).await;
                     }
                 }
-            },
+            }
             None => {
                 // No message, check if subscription still exists
                 if !subscription_exists(&sub_key).await {
@@ -560,7 +558,11 @@ pub async fn unsubscribe(
     if exists {
         on_success(true).await;
     } else {
-        on_failure(format!("Subscription '{}' for client '{}' not found", subscription_id, client_id)).await;
+        on_failure(format!(
+            "Subscription '{}' for client '{}' not found",
+            subscription_id, client_id
+        ))
+        .await;
     }
 }
 
@@ -568,7 +570,8 @@ pub async fn unsubscribe(
 #[flutter_rust_bridge::frb]
 pub async fn list_subscriptions(client_id: String) -> Vec<String> {
     let active_map = SUBSCRIPTION_ACTIVE.read().await;
-    active_map.iter()
+    active_map
+        .iter()
         .filter(|((cid, _), active)| cid == &client_id && **active)
         .map(|((_, id), _)| id.clone())
         .collect()
@@ -582,7 +585,9 @@ pub async fn list_clients() -> Vec<String> {
 }
 
 /// Helper function to get a JetStream context for a client
-async fn get_jetstream(client_id: &str) -> Result<(Client, async_nats::jetstream::Context), String> {
+async fn get_jetstream(
+    client_id: &str,
+) -> Result<(Client, async_nats::jetstream::Context), String> {
     let client = get_client(client_id).await?;
     let jetstream = async_nats::jetstream::new(client.clone());
     Ok((client, jetstream))
@@ -592,7 +597,7 @@ async fn get_jetstream(client_id: &str) -> Result<(Client, async_nats::jetstream
 async fn get_kv_store_with_callback<F>(
     client_id: &str,
     bucket_name: &str,
-    on_failure: &F
+    on_failure: &F,
 ) -> Option<async_nats::jetstream::kv::Store>
 where
     F: Fn(String) -> DartFnFuture<()>,
@@ -637,7 +642,7 @@ pub async fn kv_put(
     match store.put(&key, bytes_value).await {
         Ok(_) => {
             on_success(true).await;
-        },
+        }
         Err(e) => {
             on_failure(format!("Failed to store value: {}", e)).await;
         }
@@ -666,15 +671,15 @@ pub async fn kv_get(
             match String::from_utf8(entry.to_vec()) {
                 Ok(value) => {
                     on_success(value).await;
-                },
+                }
                 Err(e) => {
                     on_failure(format!("Invalid UTF-8 in value: {}", e)).await;
                 }
             }
-        },
+        }
         Ok(None) => {
             on_failure(format!("Key '{}' not found", key)).await;
-        },
+        }
         Err(e) => {
             on_failure(format!("Failed to get value: {}", e)).await;
         }
@@ -700,7 +705,7 @@ pub async fn kv_delete(
     match store.delete(&key).await {
         Ok(_) => {
             on_success(true).await;
-        },
+        }
         Err(e) => {
             on_failure(format!("Failed to delete key: {}", e)).await;
         }
@@ -733,7 +738,7 @@ async fn get_or_create_kv_store(
                 stores.insert(cache_key, store.clone());
             }
             Ok(store)
-        },
+        }
         Err(e) => {
             // If error is "stream not found", try to create it
             if e.to_string().contains("stream not found") {
@@ -755,10 +760,8 @@ async fn get_or_create_kv_store(
                             stores.insert(cache_key, store.clone());
                         }
                         Ok(store)
-                    },
-                    Err(create_err) => {
-                        Err(format!("Failed to create KV bucket: {}", create_err))
                     }
+                    Err(create_err) => Err(format!("Failed to create KV bucket: {}", create_err)),
                 }
             } else {
                 Err(format!("Failed to access KV bucket: {}", e))
