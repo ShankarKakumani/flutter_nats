@@ -24,6 +24,8 @@ dependencies:
 
 
 dev_dependencies:
+  ffi: ^2.0.2
+  ffigen: ^11.0.0
   flutter_test:
     sdk: flutter
 

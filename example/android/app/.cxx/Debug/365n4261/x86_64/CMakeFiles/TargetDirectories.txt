@@ -1,0 +1,2 @@
+/Users/shankarkakumani/StudioProjects/Binaryveda/keus/flutter_nats/example/android/app/.cxx/Debug/365n4261/x86_64/CMakeFiles/edit_cache.dir
+/Users/shankarkakumani/StudioProjects/Binaryveda/keus/flutter_nats/example/android/app/.cxx/Debug/365n4261/x86_64/CMakeFiles/rebuild_cache.dir
