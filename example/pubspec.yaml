@@ -15,6 +15,19 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   intl: ^0.20.2
+
+  get: ^4.6.6
+  flutter_lifecycle_aware: ^0.0.3
+
+  get_it: ^8.0.3
+  injectable: ^2.5.0
+  injectable_generator: ^2.6.2
+
+  flutter_bloc: ^8.1.6
+  bloc: ^8.1.4
+  freezed: ^2.5.7
+  freezed_annotation: ^2.4.4
+
   flutter_nats:
     path: ../
 
@@ -23,6 +36,7 @@ dev_dependencies:
     sdk: flutter
 
   flutter_lints: ^5.0.0
+  build_runner: ^2.4.14
 
 
 flutter:
