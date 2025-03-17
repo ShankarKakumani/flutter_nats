@@ -24,12 +24,74 @@ class NatsPlaygroundCubit extends Cubit<NatsPlaygroundState> {
     );
   }
 
+  // Connection section
   void updateLoadingStatus(bool value) {
     emit(state.copyWith(isLoading: value));
   }
 
   void updateConnectionStatus(bool value) {
     emit(state.copyWith(isConnected: value));
+  }
+  
+  void updateConnectionStatusText(String value) {
+    emit(state.copyWith(connectionStatus: value));
+  }
+  
+  // Publish section
+  void updatePublishStatus(String value) {
+    emit(state.copyWith(publishStatus: value));
+  }
+  
+  // Request section
+  void updateRequestResponse(String value) {
+    emit(state.copyWith(requestResponse: value));
+  }
+  
+  void updateRequestResponseTime(String value) {
+    emit(state.copyWith(requestResponseTime: value));
+  }
+  
+  // Responder section
+  void updateResponderStatus(String value) {
+    emit(state.copyWith(responderStatus: value));
+  }
+  
+  void updateResponderActive(bool value) {
+    emit(state.copyWith(isResponderActive: value));
+  }
+  
+  void updateLastRequestReceived(String value) {
+    emit(state.copyWith(lastRequestReceived: value));
+  }
+  
+  void updateLastRequestTime(String value) {
+    emit(state.copyWith(lastRequestTime: value));
+  }
+  
+  // Subscriber section
+  void updateSubscriberStatus(String value) {
+    emit(state.copyWith(subscriberStatus: value));
+  }
+  
+  void updateSubscriberActive(bool value) {
+    emit(state.copyWith(isSubscriberActive: value));
+  }
+  
+  void updateLastPublishMsgReceived(String value) {
+    emit(state.copyWith(lastPublishMsgReceived: value));
+  }
+  
+  void updateLastPublishMsgTime(String value) {
+    emit(state.copyWith(lastPublishMsgTime: value));
+  }
+  
+  // Key-Value section
+  void updateKvStatus(String value) {
+    emit(state.copyWith(kvStatus: value));
+  }
+  
+  void updateKvLastOperationTime(String value) {
+    emit(state.copyWith(kvLastOperationTime: value));
   }
 }
 

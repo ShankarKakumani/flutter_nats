@@ -16,34 +16,6 @@ class NatsPlaygroundPage extends StatefulWidget {
 class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
   final cubit = getIt<NatsPlaygroundCubit>();
 
-  String _connectionStatus = "Not connected";
-
-  String _publishStatus = "No message published";
-
-  String _requestResponse = "No request sent";
-  String _requestResponseTime = "";
-
-  String _responderStatus = "Responder not active";
-  bool _isResponderActive = false;
-  String _lastRequestReceived = "No requests yet";
-  String _lastRequestTime = "";
-  final String _responderID = "responder-123";
-
-  String _subscriberStatus = "Subscriber not active";
-  bool _isSubscriberActive = false;
-  String _lastPublishMsgReceived = "No messages yet";
-  String _lastPublishMsgTime = "";
-  final String _subscriberID = "subscriber-123";
-
-
-  String _kvStatus = "No KV operations performed";
-  String _kvLastOperationTime = "";
-
-  @override
-  void initState() {
-    super.initState();
-  }
-
   String _formatTimestamp() {
     final now = DateTime.now();
     final formatter = DateFormat('yyyy-MM-dd HH:mm:ss.SSS');
@@ -121,6 +93,12 @@ class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
 
   Widget _buildConnectionSection() {
     return BlocBuilder<NatsPlaygroundCubit, NatsPlaygroundState>(
+      buildWhen: (prev, curr) {
+        var c1 = prev.isConnected != curr.isConnected;
+        var c2 = prev.connectionStatus != curr.connectionStatus;
+        var c3 = prev.isLoading != curr.isLoading;
+        return c1 || c2 || c3;
+      },
       builder: (context, state) {
         return Card(
           child: Padding(
@@ -224,7 +202,7 @@ class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
-                          "Status: $_connectionStatus",
+                          "Status: ${state.connectionStatus}",
                           style: TextStyle(
                             color: state.isConnected ? Colors.green.shade800 : Colors.red.shade800,
                             fontWeight: FontWeight.w500,
@@ -245,6 +223,12 @@ class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
 
   Widget _buildRequestSection() {
     return BlocBuilder<NatsPlaygroundCubit, NatsPlaygroundState>(
+      buildWhen: (prev, curr) {
+        var c1 = prev.isConnected != curr.isConnected;
+        var c2 = prev.requestResponse != curr.requestResponse;
+        var c3 = prev.requestResponseTime != curr.requestResponseTime;
+        return c1 || c2 || c3;
+      },
       builder: (context, state) {
         return Card(
           child: Padding(
@@ -318,17 +302,17 @@ class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        _requestResponse,
+                        state.requestResponse,
                         style: const TextStyle(fontSize: 15),
                       ),
-                      if (_requestResponseTime.isNotEmpty) const Divider(height: 24),
-                      if (_requestResponseTime.isNotEmpty)
+                      if (state.requestResponseTime.isNotEmpty) const Divider(height: 24),
+                      if (state.requestResponseTime.isNotEmpty)
                         Row(
                           children: [
                             Icon(Icons.access_time, size: 14, color: Colors.blue.shade700),
                             const SizedBox(width: 8),
                             Text(
-                              _requestResponseTime,
+                              state.requestResponseTime,
                               style: TextStyle(
                                 fontSize: 14,
                                 fontStyle: FontStyle.italic,
@@ -350,6 +334,14 @@ class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
 
   Widget _buildResponderSection() {
     return BlocBuilder<NatsPlaygroundCubit, NatsPlaygroundState>(
+      buildWhen: (prev, curr) {
+        var c1 = prev.isConnected != curr.isConnected;
+        var c2 = prev.responderStatus != curr.responderStatus;
+        var c3 = prev.isResponderActive != curr.isResponderActive;
+        var c4 = prev.lastRequestReceived != curr.lastRequestReceived;
+        var c5 = prev.lastRequestTime != curr.lastRequestTime;
+        return c1 || c2 || c3 || c4 || c5;
+      },
       builder: (context, state) {
         return Card(
           child: Padding(
@@ -403,7 +395,7 @@ class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
                       child: SizedBox(
                         height: 48,
                         child: ElevatedButton(
-                          onPressed: state.isConnected && !_isResponderActive ? _startResponder : null,
+                          onPressed: state.isConnected && !state.isResponderActive ? _startResponder : null,
                           child: const Text("Start", style: TextStyle(fontSize: 16)),
                         ),
                       ),
@@ -413,7 +405,7 @@ class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
                       child: SizedBox(
                         height: 48,
                         child: ElevatedButton(
-                          onPressed: _isResponderActive ? _stopResponder : null,
+                          onPressed: state.isResponderActive ? _stopResponder : null,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.redAccent,
                             foregroundColor: Colors.white,
@@ -429,10 +421,10 @@ class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: _isResponderActive ? Colors.green.shade50 : Colors.grey.shade100,
+                    color: state.isResponderActive ? Colors.green.shade50 : Colors.grey.shade100,
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: _isResponderActive ? Colors.green.shade300 : Colors.grey.shade300,
+                      color: state.isResponderActive ? Colors.green.shade300 : Colors.grey.shade300,
                       width: 1.5,
                     ),
                   ),
@@ -442,25 +434,25 @@ class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
                       Row(
                         children: [
                           Icon(
-                            _isResponderActive ? Icons.check_circle : Icons.radio_button_unchecked,
-                            color: _isResponderActive ? Colors.green.shade700 : Colors.grey.shade600,
+                            state.isResponderActive ? Icons.check_circle : Icons.radio_button_unchecked,
+                            color: state.isResponderActive ? Colors.green.shade700 : Colors.grey.shade600,
                             size: 20,
                           ),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Text(
-                              "Status: $_responderStatus",
+                              "Status: ${state.responderStatus}",
                               style: TextStyle(
                                 fontWeight: FontWeight.w600,
-                                color: _isResponderActive ? Colors.green.shade800 : Colors.grey.shade800,
+                                color: state.isResponderActive ? Colors.green.shade800 : Colors.grey.shade800,
                                 fontSize: 16,
                               ),
                             ),
                           ),
                         ],
                       ),
-                      if (_lastRequestReceived != "No requests yet") const Divider(height: 24),
-                      if (_lastRequestReceived != "No requests yet")
+                      if (state.lastRequestReceived != "No requests yet") const Divider(height: 24),
+                      if (state.lastRequestReceived != "No requests yet")
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -470,7 +462,7 @@ class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              _lastRequestReceived,
+                              state.lastRequestReceived,
                               style: const TextStyle(fontSize: 15),
                             ),
                             const SizedBox(height: 8),
@@ -479,7 +471,7 @@ class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
                                 Icon(Icons.access_time, size: 14, color: Colors.green.shade700),
                                 const SizedBox(width: 8),
                                 Text(
-                                  _lastRequestTime,
+                                  state.lastRequestTime,
                                   style: TextStyle(
                                     fontSize: 14,
                                     fontStyle: FontStyle.italic,
@@ -503,6 +495,11 @@ class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
 
   Widget _buildPublishSection() {
     return BlocBuilder<NatsPlaygroundCubit, NatsPlaygroundState>(
+      buildWhen: (prev, curr) {
+        var c1 = prev.isConnected != curr.isConnected;
+        var c2 = prev.publishStatus != curr.publishStatus;
+        return c1 || c2;
+      },
       builder: (context, state) {
         return Card(
           child: Padding(
@@ -568,7 +565,7 @@ class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
                     border: Border.all(color: Colors.blue.shade300, width: 1.5),
                   ),
                   child: Text(
-                    "Status: $_publishStatus",
+                    "Status: ${state.publishStatus}",
                     style: TextStyle(
                       color: Colors.blue.shade800,
                       fontSize: 15,
@@ -586,6 +583,14 @@ class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
 
   Widget _buildSubscribeSection() {
     return BlocBuilder<NatsPlaygroundCubit, NatsPlaygroundState>(
+      buildWhen: (prev, curr) {
+        var c1 = prev.isConnected != curr.isConnected;
+        var c2 = prev.subscriberStatus != curr.subscriberStatus;
+        var c3 = prev.isSubscriberActive != curr.isSubscriberActive;
+        var c4 = prev.lastPublishMsgReceived != curr.lastPublishMsgReceived;
+        var c5 = prev.lastPublishMsgTime != curr.lastPublishMsgTime;
+        return c1 || c2 || c3 || c4 || c5;
+      },
       builder: (context, state) {
         return Card(
           child: Padding(
@@ -625,7 +630,7 @@ class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
                       child: SizedBox(
                         height: 48,
                         child: ElevatedButton(
-                          onPressed: state.isConnected && !_isSubscriberActive ? _startSubscriber : null,
+                          onPressed: state.isConnected && !state.isSubscriberActive ? _startSubscriber : null,
                           child: const Text("Start", style: TextStyle(fontSize: 16)),
                         ),
                       ),
@@ -635,7 +640,7 @@ class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
                       child: SizedBox(
                         height: 48,
                         child: ElevatedButton(
-                          onPressed: _isSubscriberActive ? _stopSubscriber : null,
+                          onPressed: state.isSubscriberActive ? _stopSubscriber : null,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.redAccent,
                             foregroundColor: Colors.white,
@@ -651,10 +656,10 @@ class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: _isSubscriberActive ? Colors.green.shade50 : Colors.grey.shade100,
+                    color: state.isSubscriberActive ? Colors.green.shade50 : Colors.grey.shade100,
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: _isSubscriberActive ? Colors.green.shade300 : Colors.grey.shade300,
+                      color: state.isSubscriberActive ? Colors.green.shade300 : Colors.grey.shade300,
                       width: 1.5,
                     ),
                   ),
@@ -664,26 +669,26 @@ class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
                       Row(
                         children: [
                           Icon(
-                            _isSubscriberActive ? Icons.check_circle : Icons.radio_button_unchecked,
-                            color: _isSubscriberActive ? Colors.green.shade700 : Colors.grey.shade600,
+                            state.isSubscriberActive ? Icons.check_circle : Icons.radio_button_unchecked,
+                            color: state.isSubscriberActive ? Colors.green.shade700 : Colors.grey.shade600,
                             size: 20,
                           ),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Text(
-                              "Status: $_subscriberStatus",
+                              "Status: ${state.subscriberStatus}",
                               style: TextStyle(
                                 fontWeight: FontWeight.w600,
-                                color: _isSubscriberActive ? Colors.green.shade800 : Colors.grey.shade800,
+                                color: state.isSubscriberActive ? Colors.green.shade800 : Colors.grey.shade800,
                                 fontSize: 16,
                               ),
                             ),
                           ),
                         ],
                       ),
-                      if (_lastPublishMsgReceived != "No messages yet" && _lastPublishMsgReceived != "No requests yet")
+                      if (state.lastPublishMsgReceived != "No messages yet" && state.lastPublishMsgReceived != "No requests yet")
                         const Divider(height: 24),
-                      if (_lastPublishMsgReceived != "No messages yet" && _lastPublishMsgReceived != "No requests yet")
+                      if (state.lastPublishMsgReceived != "No messages yet" && state.lastPublishMsgReceived != "No requests yet")
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -693,7 +698,7 @@ class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              _lastPublishMsgReceived,
+                              state.lastPublishMsgReceived,
                               style: const TextStyle(fontSize: 15),
                             ),
                             const SizedBox(height: 8),
@@ -702,7 +707,7 @@ class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
                                 Icon(Icons.access_time, size: 14, color: Colors.green.shade700),
                                 const SizedBox(width: 8),
                                 Text(
-                                  _lastPublishMsgTime,
+                                  state.lastPublishMsgTime,
                                   style: TextStyle(
                                     fontSize: 14,
                                     fontStyle: FontStyle.italic,
@@ -726,6 +731,12 @@ class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
 
   Widget _buildKeyValueSection() {
     return BlocBuilder<NatsPlaygroundCubit, NatsPlaygroundState>(
+      buildWhen: (prev, curr) {
+        var c1 = prev.isConnected != curr.isConnected;
+        var c2 = prev.kvStatus != curr.kvStatus;
+        var c3 = prev.kvLastOperationTime != curr.kvLastOperationTime;
+        return c1 || c2 || c3;
+      },
       builder: (context, state) {
         return Card(
           child: Padding(
@@ -835,21 +846,21 @@ class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        "Status: $_kvStatus",
+                        "Status: ${state.kvStatus}",
                         style: TextStyle(
                           color: Colors.blue.shade800,
                           fontWeight: FontWeight.w500,
                           fontSize: 15,
                         ),
                       ),
-                      if (_kvLastOperationTime.isNotEmpty) const Divider(height: 24),
-                      if (_kvLastOperationTime.isNotEmpty)
+                      if (state.kvLastOperationTime.isNotEmpty) const Divider(height: 24),
+                      if (state.kvLastOperationTime.isNotEmpty)
                         Row(
                           children: [
                             Icon(Icons.access_time, size: 14, color: Colors.blue.shade700),
                             const SizedBox(width: 8),
                             Text(
-                              _kvLastOperationTime,
+                              state.kvLastOperationTime,
                               style: TextStyle(
                                 fontSize: 14,
                                 fontStyle: FontStyle.italic,
@@ -890,15 +901,15 @@ class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
     cubit.natsController.connect(
       onSuccess: (isConnected) {
         setState(() {
-          _connectionStatus = "Connected";
           cubit.updateConnectionStatus(true);
+          cubit.updateConnectionStatusText("Connected");
           cubit.updateLoadingStatus(false);
         });
       },
       onFailure: (errorString) {
         setState(() {
-          _connectionStatus = "Not Connected - $errorString";
           cubit.updateConnectionStatus(false);
+          cubit.updateConnectionStatusText("Not Connected - $errorString");
           cubit.updateLoadingStatus(false);
         });
       },
@@ -910,18 +921,18 @@ class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
     cubit.natsController.disconnect(
       onSuccess: (isSuccess) {
         setState(() {
-          _connectionStatus = "Disconnected";
           cubit.updateConnectionStatus(false);
-          _isResponderActive = false;
-          _isSubscriberActive = false;
-          _responderStatus = "Responder not active";
-          _subscriberStatus = "Subscriber not active";
+          cubit.updateConnectionStatusText("Disconnected");
+          cubit.updateResponderActive(false);
+          cubit.updateSubscriberActive(false);
+          cubit.updateResponderStatus("Responder not active");
+          cubit.updateSubscriberStatus("Subscriber not active");
           cubit.updateLoadingStatus(false);
         });
       },
       onFailure: (errorMessage) {
         setState(() {
-          _connectionStatus = "Disconnect error: $errorMessage";
+          cubit.updateConnectionStatusText("Disconnect error: $errorMessage");
           cubit.updateLoadingStatus(false);
         });
       },
@@ -935,12 +946,12 @@ class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
       payload: cubit.controllers.publishMessageController.text,
       onSuccess: (isSuccess) {
         setState(() {
-          _publishStatus = "Message published successfully at ${_formatTimestamp()}";
+          cubit.updatePublishStatus("Message published successfully at ${_formatTimestamp()}");
         });
       },
       onFailure: (errorMessage) {
         setState(() {
-          _publishStatus = "Publish error: $errorMessage";
+          cubit.updatePublishStatus("Publish error: $errorMessage");
         });
       },
     );
@@ -955,15 +966,15 @@ class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
       timeoutMs: 5000,
       onSuccess: (successMessage) {
         setState(() {
-          _requestResponse = successMessage;
-          _requestResponseTime = _formatTimestamp();
+          cubit.updateRequestResponse(successMessage);
+          cubit.updateRequestResponseTime(_formatTimestamp());
           cubit.updateLoadingStatus(false);
         });
       },
       onFailure: (errorMessage) {
         setState(() {
-          _requestResponse = "Request error: $errorMessage";
-          _requestResponseTime = _formatTimestamp();
+          cubit.updateRequestResponse("Request error: $errorMessage");
+          cubit.updateRequestResponseTime(_formatTimestamp());
           cubit.updateLoadingStatus(false);
         });
       },
@@ -974,23 +985,23 @@ class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
   void _startResponder() {
     cubit.natsController.setupResponder(
       subject: cubit.controllers.responderSubjectController.text,
-      responderId: _responderID,
+      responderId: cubit.state.responderID,
       processRequest: (requestMessage) async {
         setState(() {
-          _lastRequestReceived = requestMessage;
-          _lastRequestTime = _formatTimestamp();
+          cubit.updateLastRequestReceived(requestMessage);
+          cubit.updateLastRequestTime(_formatTimestamp());
         });
         return cubit.controllers.responderReplyController.text;
       },
       onSuccess: (isSuccess) {
         setState(() {
-          _responderStatus = "Responder active";
-          _isResponderActive = true;
+          cubit.updateResponderStatus("Responder active");
+          cubit.updateResponderActive(true);
         });
       },
       onError: (errorMessage) {
         setState(() {
-          _responderStatus = "Responder error: $errorMessage";
+          cubit.updateResponderStatus("Responder error: $errorMessage");
         });
       },
     );
@@ -998,16 +1009,16 @@ class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
 
   void _stopResponder() {
     cubit.natsController.unsubscribe(
-      subscriptionId: _responderID,
+      subscriptionId: cubit.state.responderID,
       onSuccess: (isSuccess) {
         setState(() {
-          _responderStatus = "Responder not active";
-          _isResponderActive = false;
+          cubit.updateResponderStatus("Responder not active");
+          cubit.updateResponderActive(false);
         });
       },
       onFailure: (errorMessage) {
         setState(() {
-          _responderStatus = "Stop responder error: $errorMessage";
+          cubit.updateResponderStatus("Stop responder error: $errorMessage");
         });
       },
     );
@@ -1017,30 +1028,30 @@ class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
   void _startSubscriber() {
     cubit.natsController.subscribe(
       subject: cubit.controllers.subscribeSubjectController.text,
-      subscriptionId: _subscriberID,
+      subscriptionId: cubit.state.subscriberID,
       maxMessages: 1000,
       onMessage: (topic, message) {
         setState(() {
-          _lastPublishMsgReceived = message;
-          _lastPublishMsgTime = _formatTimestamp();
+          cubit.updateLastPublishMsgReceived(message);
+          cubit.updateLastPublishMsgTime(_formatTimestamp());
         });
       },
       onSuccess: (isSuccess) {
         setState(() {
-          _subscriberStatus = "Subscriber active";
-          _isSubscriberActive = true;
+          cubit.updateSubscriberStatus("Subscriber active");
+          cubit.updateSubscriberActive(true);
         });
       },
       onError: (errorMessage) {
         setState(() {
-          _subscriberStatus = "Subscriber error: $errorMessage";
-          _isSubscriberActive = false;
+          cubit.updateSubscriberStatus("Subscriber error: $errorMessage");
+          cubit.updateSubscriberActive(false);
         });
       },
       onDone: () {
         setState(() {
-          _subscriberStatus = "Subscription completed";
-          _isSubscriberActive = false;
+          cubit.updateSubscriberStatus("Subscription completed");
+          cubit.updateSubscriberActive(false);
         });
       },
     );
@@ -1048,16 +1059,16 @@ class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
 
   void _stopSubscriber() {
     cubit.natsController.unsubscribe(
-      subscriptionId: _subscriberID,
+      subscriptionId: cubit.state.subscriberID,
       onSuccess: (isSuccess) {
         setState(() {
-          _subscriberStatus = "Subscriber not active";
-          _isSubscriberActive = false;
+          cubit.updateSubscriberStatus("Subscriber not active");
+          cubit.updateSubscriberActive(false);
         });
       },
       onFailure: (errorMessage) {
         setState(() {
-          _subscriberStatus = "Stop subscriber error: $errorMessage";
+          cubit.updateSubscriberStatus("Stop subscriber error: $errorMessage");
         });
       },
     );
@@ -1072,15 +1083,15 @@ class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
       value: cubit.controllers.kvValueController.text,
       onSuccess: (isSuccess) {
         setState(() {
-          _kvStatus = "Value stored successfully";
-          _kvLastOperationTime = _formatTimestamp();
+          cubit.updateKvStatus("Value stored successfully");
+          cubit.updateKvLastOperationTime(_formatTimestamp());
           cubit.updateLoadingStatus(false);
         });
       },
       onFailure: (errorMessage) {
         setState(() {
-          _kvStatus = "Put error: $errorMessage";
-          _kvLastOperationTime = _formatTimestamp();
+          cubit.updateKvStatus("Put error: $errorMessage");
+          cubit.updateKvLastOperationTime(_formatTimestamp());
           cubit.updateLoadingStatus(false);
         });
       },
@@ -1095,15 +1106,15 @@ class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
       onSuccess: (value) {
         setState(() {
           cubit.controllers.kvValueController.text = value;
-          _kvStatus = "Value retrieved successfully";
-          _kvLastOperationTime = _formatTimestamp();
+          cubit.updateKvStatus("Value retrieved successfully");
+          cubit.updateKvLastOperationTime(_formatTimestamp());
           cubit.updateLoadingStatus(false);
         });
       },
       onFailure: (errorMessage) {
         setState(() {
-          _kvStatus = "Get error: $errorMessage";
-          _kvLastOperationTime = _formatTimestamp();
+          cubit.updateKvStatus("Get error: $errorMessage");
+          cubit.updateKvLastOperationTime(_formatTimestamp());
           cubit.updateLoadingStatus(false);
         });
       },
@@ -1117,15 +1128,15 @@ class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
       key: cubit.controllers.kvKeyController.text,
       onSuccess: (isSuccess) {
         setState(() {
-          _kvStatus = "Key deleted successfully";
-          _kvLastOperationTime = _formatTimestamp();
+          cubit.updateKvStatus("Key deleted successfully");
+          cubit.updateKvLastOperationTime(_formatTimestamp());
           cubit.updateLoadingStatus(false);
         });
       },
       onFailure: (errorMessage) {
         setState(() {
-          _kvStatus = "Delete error: $errorMessage";
-          _kvLastOperationTime = _formatTimestamp();
+          cubit.updateKvStatus("Delete error: $errorMessage");
+          cubit.updateKvLastOperationTime(_formatTimestamp());
           cubit.updateLoadingStatus(false);
         });
       },
