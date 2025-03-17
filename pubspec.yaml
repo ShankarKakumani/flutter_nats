@@ -18,6 +18,7 @@ dependencies:
   rust_lib_flutter_nats:
     path: rust_builder
 
+  plugin_platform_interface: ^2.0.2
   flutter_rust_bridge: 2.8.0
   uuid: ^4.5.1
 

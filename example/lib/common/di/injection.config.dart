@@ -9,9 +9,11 @@
 // coverage:ignore-file
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'package:example/presentation/view/nats_playground/cubit/nats_playground_cubit.dart';
 import 'package:get_it/get_it.dart' as _i174;
 import 'package:injectable/injectable.dart' as _i526;
+
+import '../../presentation/view/nats_playground/cubit/nats_playground_cubit.dart'
+    as _i847;
 
 extension GetItInjectableX on _i174.GetIt {
 // initializes the registration of main-scope dependencies inside of GetIt
@@ -24,9 +26,10 @@ extension GetItInjectableX on _i174.GetIt {
       environment,
       environmentFilter,
     );
-    gh.factory<NatsPlayGroundControllers>(() => NatsPlayGroundControllers());
-    gh.factory<NatsPlaygroundCubit>(
-        () => NatsPlaygroundCubit(gh<NatsPlayGroundControllers>()));
+    gh.factory<_i847.NatsPlayGroundControllers>(
+        () => _i847.NatsPlayGroundControllers());
+    gh.factory<_i847.NatsPlaygroundCubit>(
+        () => _i847.NatsPlaygroundCubit(gh<_i847.NatsPlayGroundControllers>()));
     return this;
   }
 }

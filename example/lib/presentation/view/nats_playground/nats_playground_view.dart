@@ -73,7 +73,7 @@ class NatsPlaygroundPageState extends State<NatsPlaygroundPage> {
                 return Visibility(
                   visible: state.isLoading,
                   child: Container(
-                    color: Colors.black.withOpacity(0.3),
+                    color: Colors.black.withValues(alpha: 0.3),
                     child: const Center(
                       child: CircularProgressIndicator(
                         color: Color(0xFF2C3E50),
